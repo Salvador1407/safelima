@@ -3,6 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/models/app_feedback.dart';
 import 'package:safelima/services/app_feedback_service.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_input_decoration.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
 
 class AppFeedbackScreen extends StatefulWidget {
   final int citizenId;
@@ -27,9 +31,7 @@ class _AppFeedbackScreenState extends State<AppFeedbackScreen> {
 
   Future<void> _submit() async {
     if (_rating < 1 || _rating > 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona una calificación de 1 a 5')),
-      );
+      SafeSnackBar.showWarning(context, 'Selecciona una calificación de 1 a 5');
       return;
     }
 
@@ -57,18 +59,15 @@ class _AppFeedbackScreenState extends State<AppFeedbackScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gracias por ayudarnos a mejorar SafeLima'),
-        ),
+      SafeSnackBar.showSuccess(
+        context,
+        'Gracias por ayudarnos a mejorar SafeLima',
       );
 
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al enviar feedback: $e')),
-      );
+      SafeSnackBar.showError(context, 'Error al enviar feedback: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -82,7 +81,7 @@ class _AppFeedbackScreenState extends State<AppFeedbackScreen> {
       icon: Icon(
         index <= _rating ? Icons.star : Icons.star_border,
         color: Colors.amber,
-        size: 34,
+        size: 36,
       ),
     );
   }
@@ -90,6 +89,7 @@ class _AppFeedbackScreenState extends State<AppFeedbackScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
 
     return Scaffold(
       backgroundColor: isDark
@@ -105,46 +105,49 @@ class _AppFeedbackScreenState extends State<AppFeedbackScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "¿Cómo fue tu experiencia general con la app?",
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(5, (index) => _buildStar(index + 1)),
-            ),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _commentController,
-              maxLines: 4,
-              maxLength: 500,
-              decoration: InputDecoration(
-                labelText: "Comentario (opcional)",
-                hintText: "Cuéntanos qué podríamos mejorar",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+        padding: const EdgeInsets.all(16),
+        child: SafeCard(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "¿Cómo fue tu experiencia general con la app?",
+                style: GoogleFonts.poppins(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _loading ? null : _submit,
-                child: _loading
-                    ? const CircularProgressIndicator()
-                    : Text(widget.isEdit ? "Actualizar" : "Enviar"),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) => _buildStar(index + 1)),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              TextField(
+                controller: _commentController,
+                maxLines: 4,
+                maxLength: 500,
+                style: GoogleFonts.poppins(color: textColor),
+                decoration: safeInputDecoration(
+                  context,
+                  labelText: "Comentario (opcional)",
+                  hintText: "Cuéntanos qué podríamos mejorar",
+                  prefixIcon: Icons.rate_review_outlined,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: SafeButton.primary(
+                  onPressed: _loading ? null : _submit,
+                  label: widget.isEdit ? "Actualizar" : "Enviar",
+                  isLoading: _loading,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

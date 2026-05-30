@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/core/app_data.dart';
 import 'package:safelima/screens/splash_screen.dart';
@@ -11,6 +12,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:safelima/models/app_feedback.dart';
 import 'package:safelima/services/app_feedback_service.dart';
 import 'package:safelima/services/notification_settings_service.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_dialog.dart';
+import 'package:safelima/widgets/safe_input_decoration.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
+import 'package:safelima/widgets/safe_status_chip.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -106,12 +113,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _notificationsEnabled = previousValue;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(_notificationUpdateErrorMessage),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      SafeSnackBar.showError(context, _notificationUpdateErrorMessage);
       return;
     }
 
@@ -133,16 +135,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (!granted) {
           await _notificationSettingsService.setNotificationsEnabled(false);
 
+          if (!mounted) return;
+
           setState(() {
             _notificationsEnabled = false;
           });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Permiso de notificaciones denegado"),
-              backgroundColor: AppColors.danger,
-            ),
-          );
+          SafeSnackBar.showError(context, "Permiso de notificaciones denegado");
           return;
         }
 
@@ -157,17 +156,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _notificationsEnabled = previousValue;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(_notificationUpdateErrorMessage),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      SafeSnackBar.showError(context, _notificationUpdateErrorMessage);
     }
   }
 
   void _mostrarDialogoFeedback() {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+
     final comentarioController = TextEditingController();
     int estrellasSeleccionadas = 0;
     bool enviando = false;
@@ -175,19 +173,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       barrierDismissible: !enviando,
-      builder: (_) {
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setStateDialog) {
+          builder: (dialogContext, setStateDialog) {
             return AlertDialog(
-              backgroundColor: theme.colorScheme.surface,
+              backgroundColor: cardColor,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(color: borderColor, width: 0.9),
               ),
               title: Text(
                 "Califica SafeLima",
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryDark,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 19,
+                  color: isDark ? AppColors.secondaryDark : AppColors.primary,
                 ),
               ),
               content: SingleChildScrollView(
@@ -197,7 +197,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     Text(
                       "¿Cómo fue tu experiencia general en la app?",
-                      style: theme.textTheme.bodyMedium,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14.5,
+                        color: textColor,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -225,12 +228,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       controller: comentarioController,
                       maxLines: 4,
                       maxLength: 300,
-                      decoration: InputDecoration(
+                      style: GoogleFonts.poppins(color: textColor),
+                      decoration: safeInputDecoration(
+                        context,
                         labelText: "Comentario (opcional)",
                         hintText: "Cuéntanos qué podríamos mejorar",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
                       ),
                     ),
                   ],
@@ -238,32 +240,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: enviando ? null : () => Navigator.pop(context),
-                  child: const Text(
+                  onPressed: enviando
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: Text(
                     "Cancelar",
-                    style: TextStyle(
-                      color: AppColors.primary,
+                    style: GoogleFonts.poppins(
+                      color: isDark
+                          ? AppColors.subtitleDark
+                          : AppColors.subtitleLight,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+                SafeButton(
+                  label: "Enviar",
+                  isLoading: enviando,
                   onPressed: enviando
                       ? null
                       : () async {
                           if (estrellasSeleccionadas == 0) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  "Selecciona una calificación de 1 a 5 estrellas.",
-                                ),
-                              ),
+                            SafeSnackBar.showWarning(
+                              dialogContext,
+                              "Selecciona una calificación de 1 a 5 estrellas.",
                             );
                             return;
                           }
@@ -284,19 +283,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                             await _appFeedbackService.createFeedback(feedback);
 
-                            if (!mounted) return;
-                            Navigator.pop(context);
+                            if (!mounted || !dialogContext.mounted) return;
+                            Navigator.pop(dialogContext);
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  "Gracias por calificar SafeLima.",
-                                ),
-                                backgroundColor: Colors.green,
-                              ),
+                            SafeSnackBar.showSuccess(
+                              context,
+                              "Gracias por calificar SafeLima.",
                             );
                           } catch (e) {
-                            if (!mounted) return;
+                            if (!mounted || !dialogContext.mounted) return;
                             setStateDialog(() {
                               enviando = false;
                             });
@@ -308,41 +303,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   "ya registró una calificación",
                                 ) ||
                                 errorText.contains("ya calificó")) {
-                              Navigator.pop(context);
+                              Navigator.pop(dialogContext);
 
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    "Ya registraste tu calificación anteriormente.",
-                                  ),
-                                  backgroundColor: Colors.orange,
-                                ),
+                              SafeSnackBar.showWarning(
+                                context,
+                                "Ya registraste tu calificación anteriormente.",
                               );
                               return;
                             }
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  "No se pudo enviar tu opinión. Inténtalo nuevamente.",
-                                ),
-                              ),
+                            SafeSnackBar.showError(
+                              context,
+                              "No se pudo enviar tu opinión. Inténtalo nuevamente.",
                             );
                           }
                         },
-                  child: enviando
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text(
-                          "Enviar",
-                          style: TextStyle(color: Colors.white),
-                        ),
                 ),
               ],
             );
@@ -358,6 +333,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
+  Widget _settingsCard({required Widget child}) {
+    return SafeCard(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: EdgeInsets.zero,
+      child: child,
+    );
+  }
+
   Future<void> _showTermsAndConditions() async {
     final connected = await _hasConnection();
 
@@ -368,31 +351,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
         isConnected = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(_termsConnectionErrorMessage),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      SafeSnackBar.showError(context, _termsConnectionErrorMessage);
       return;
     }
 
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+
     final textStyle = theme.textTheme.bodyMedium?.copyWith(
-      color: theme.colorScheme.onSurface.withOpacity(0.9),
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.90),
       height: 1.45,
     );
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: theme.colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: borderColor, width: 0.9),
+        ),
         title: Text(
           "Términos y Condiciones de SafeLima",
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: AppColors.primaryDark,
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            color: isDark ? AppColors.secondaryDark : AppColors.primary,
           ),
         ),
         content: SingleChildScrollView(
@@ -430,11 +416,11 @@ Al continuar, confirmas que has leído y aceptas estos términos y condiciones d
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               "Cerrar",
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
+              style: GoogleFonts.poppins(
+                color: isDark ? AppColors.secondaryDark : AppColors.primary,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -451,17 +437,9 @@ Al continuar, confirmas que has leído y aceptas estos términos y condiciones d
       setState(() {
         isConnected = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "No tienes conexión a internet. No se pudo cerrar sesión.",
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-          ),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-        ),
+      SafeSnackBar.showError(
+        context,
+        "No tienes conexión a internet. No se pudo cerrar sesión.",
       );
       return;
     }
@@ -471,18 +449,7 @@ Al continuar, confirmas que has leído y aceptas estos términos y condiciones d
     AppData.citizen_id = 0;
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "Sesión cerrada correctamente.",
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-        ),
-        backgroundColor: AppColors.secundary,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    SafeSnackBar.showSuccess(context, "Sesión cerrada correctamente.");
 
     Navigator.pushAndRemoveUntil(
       context,
@@ -491,192 +458,232 @@ Al continuar, confirmas que has leído y aceptas estos términos y condiciones d
     );
   }
 
-  void _eliminarCuenta() {
-    final theme = Theme.of(context);
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: theme.colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text(
-          "Eliminar cuenta",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.redAccent,
-          ),
-        ),
-        content: const Text(
+  void _eliminarCuenta() async {
+    final confirm = await SafeDialog.showConfirmation(
+      context,
+      title: "Eliminar cuenta",
+      content:
           "¿Estás seguro de que deseas eliminar tu cuenta? Tu información será desactivada y no podrás acceder hasta reactivarla nuevamente.",
-          style: TextStyle(height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancelar"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () async {
-              try {
-                final connected = await _hasConnection();
-                if (!mounted) return;
-
-                if (!connected) {
-                  setState(() {
-                    isConnected = false;
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("No se pudo eliminar la cuenta"),
-                      backgroundColor: AppColors.danger,
-                    ),
-                  );
-                  return;
-                }
-
-                final userIdString = await storage.read(key: "user_id");
-
-                if (userIdString == null) {
-                  throw Exception("No se encontró el ID de usuario");
-                }
-
-                final userId = int.parse(userIdString);
-
-                Map<String, dynamic> updateResponse = {"enable": false};
-                await _userService.updateUser(userId, updateResponse);
-
-                if (!mounted) return;
-
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Cuenta eliminada correctamente."),
-                    backgroundColor: Colors.redAccent,
-                  ),
-                );
-
-                await storage.deleteAll();
-                if (!mounted) return;
-
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SplashScreen()),
-                  (route) => false,
-                );
-              } catch (e) {
-                if (!mounted) return;
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("No se pudo eliminar la cuenta: $e")),
-                );
-              }
-            },
-            child: const Text(
-              "Eliminar",
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
+      confirmLabel: "Eliminar",
+      cancelLabel: "Cancelar",
+      icon: Icons.delete_forever_rounded,
+      iconColor: AppColors.danger,
     );
+
+    if (confirm != true) return;
+
+    try {
+      final connected = await _hasConnection();
+      if (!mounted) return;
+
+      if (!connected) {
+        setState(() {
+          isConnected = false;
+        });
+        SafeSnackBar.showError(context, "No se pudo eliminar la cuenta");
+        return;
+      }
+
+      final userIdString = await storage.read(key: "user_id");
+
+      if (userIdString == null) {
+        throw Exception("No se encontró el ID de usuario");
+      }
+
+      final userId = int.parse(userIdString);
+
+      Map<String, dynamic> updateResponse = {"enable": false};
+      await _userService.updateUser(userId, updateResponse);
+
+      if (!mounted) return;
+
+      SafeSnackBar.showSuccess(context, "Cuenta eliminada correctamente.");
+
+      await storage.deleteAll();
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      SafeSnackBar.showError(context, "No se pudo eliminar la cuenta");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final baseTextStyle = theme.textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.subtitleLight;
+    final primaryColor = isDark ? AppColors.secondaryDark : AppColors.primary;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
           "Configuración",
-          style: baseTextStyle.titleLarge?.copyWith(color: Colors.white),
-        ),
-        centerTitle: true,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secundary],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
+        centerTitle: true,
+        elevation: 0,
+        flexibleSpace: isDark
+            ? null
+            : Container(
+                decoration: const BoxDecoration(
+                  gradient: AppColors.mainGradient,
+                ),
+              ),
+        backgroundColor: isDark ? AppColors.backgroundDark : null,
       ),
       body: SafeArea(
         child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 16),
           children: [
-            ListTile(
-              leading: Icon(
-                isConnected ? Icons.wifi : Icons.wifi_off,
-                color: isConnected ? Colors.green : Colors.redAccent,
-              ),
-              title: Text(
-                "Estado de conexión",
-                style: baseTextStyle.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
+            _settingsCard(
+              child: ListTile(
+                leading: Icon(
+                  isConnected ? Icons.wifi_rounded : Icons.wifi_off_rounded,
+                  color: isConnected ? AppColors.success : AppColors.danger,
+                ),
+                title: Text(
+                  "Estado de conexión",
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                    fontSize: 15,
+                  ),
+                ),
+                subtitle: Text(
+                  isConnected ? "Conectado" : "Sin conexión",
+                  style: GoogleFonts.poppins(
+                    color: subtitleColor,
+                    fontSize: 13,
+                  ),
+                ),
+                trailing: SafeStatusChip(
+                  label: isConnected ? "CONECTADO" : "SIN RED",
+                  tone: isConnected
+                      ? SafeStatusTone.success
+                      : SafeStatusTone.danger,
                 ),
               ),
-              subtitle: Text(
-                isConnected ? "Conectado" : "Sin conexión",
-                style: baseTextStyle.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+            ),
+            _settingsCard(
+              child: SwitchListTile(
+                secondary: Icon(
+                  Icons.notifications_active_rounded,
+                  color: primaryColor,
+                ),
+                title: Text(
+                  "Activar notificaciones",
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                    fontSize: 15,
+                  ),
+                ),
+                subtitle: Text(
+                  "Activa o desactiva todas las alertas de SafeLima",
+                  style: GoogleFonts.poppins(
+                    fontSize: 12.5,
+                    color: subtitleColor,
+                  ),
+                ),
+                value: _notificationsEnabled,
+                activeThumbColor: isDark
+                    ? AppColors.secondaryDark
+                    : AppColors.primary,
+                activeTrackColor:
+                    (isDark ? AppColors.secondaryDark : AppColors.primary)
+                        .withValues(alpha: 0.3),
+                onChanged: _toggleNotifications,
+              ),
+            ),
+            _settingsCard(
+              child: ListTile(
+                leading: Icon(Icons.description_rounded, color: primaryColor),
+                title: Text(
+                  "Términos y condiciones de uso",
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                    fontSize: 15,
+                  ),
+                ),
+                onTap: _showTermsAndConditions,
+                trailing: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: subtitleColor,
                 ),
               ),
             ),
-
-            SwitchListTile(
-              secondary: const Icon(
-                Icons.notifications_active_rounded,
-                color: AppColors.primary,
+            _settingsCard(
+              child: ListTile(
+                leading: const Icon(
+                  Icons.star_rate_rounded,
+                  color: Colors.amber,
+                ),
+                title: Text(
+                  "Calificar la aplicación",
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                    fontSize: 15,
+                  ),
+                ),
+                subtitle: Text(
+                  "Ayúdanos a mejorar SafeLima",
+                  style: GoogleFonts.poppins(
+                    fontSize: 12.5,
+                    color: subtitleColor,
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: subtitleColor,
+                ),
+                onTap: _mostrarDialogoFeedback,
               ),
-              title: const Text("Activar notificaciones"),
-              subtitle: const Text(
-                "Activa o desactiva todas las alertas de SafeLima",
+            ),
+            _settingsCard(
+              child: ListTile(
+                leading: const Icon(Icons.logout_rounded, color: Colors.orange),
+                title: Text(
+                  "Cerrar sesión",
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                    fontSize: 15,
+                  ),
+                ),
+                onTap: _cerrarSesion,
               ),
-              value: _notificationsEnabled,
-              activeThumbColor: AppColors.primary,
-              onChanged: _toggleNotifications,
             ),
-
-            ListTile(
-              leading: const Icon(
-                Icons.description_rounded,
-                color: AppColors.primary,
+            _settingsCard(
+              child: ListTile(
+                leading: const Icon(
+                  Icons.delete_forever_rounded,
+                  color: AppColors.danger,
+                ),
+                title: Text(
+                  "Eliminar cuenta",
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                    fontSize: 15,
+                  ),
+                ),
+                onTap: _eliminarCuenta,
               ),
-              title: const Text("Términos y condiciones de uso"),
-              onTap: _showTermsAndConditions,
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.star_rate_rounded, color: Colors.amber),
-              title: const Text("Calificar la aplicación"),
-              subtitle: const Text("Ayúdanos a mejorar SafeLima"),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: _mostrarDialogoFeedback,
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.logout_rounded, color: Colors.orange),
-              title: const Text("Cerrar sesión"),
-              onTap: _cerrarSesion,
-            ),
-
-            ListTile(
-              leading: const Icon(
-                Icons.delete_forever_rounded,
-                color: Colors.redAccent,
-              ),
-              title: const Text("Eliminar cuenta"),
-              onTap: _eliminarCuenta,
             ),
           ],
         ),

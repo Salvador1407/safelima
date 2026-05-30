@@ -10,6 +10,10 @@ import 'package:safelima/screens/home_screen.dart';
 import 'package:safelima/screens/register_screen.dart';
 import 'package:safelima/screens/splash_screen.dart';
 import 'package:safelima/services/user_service.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_input_decoration.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
 
 class LoginScreenUser extends StatefulWidget {
   const LoginScreenUser({super.key});
@@ -24,6 +28,7 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
   final TextEditingController _passController = TextEditingController();
   bool _isPasswordVisible = false;
   final AuthService _authService = AuthService();
+  bool _isLoading = false;
 
   Future<bool> _hasInternet() async {
     final connectivityResult = await Connectivity().checkConnectivity();
@@ -45,22 +50,16 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
 
   void _login() async {
     if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
       final connected = await _hasInternet();
-      if (!mounted) return;
+      if (!mounted) {
+        setState(() => _isLoading = false);
+        return;
+      }
 
       if (!connected) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "No tienes conexion a internet",
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-            ),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        setState(() => _isLoading = false);
+        SafeSnackBar.showError(context, "No tienes conexion a internet");
         return;
       }
 
@@ -70,26 +69,24 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
           _passController.text.trim(),
         );
 
-        if (!mounted) return;
+        if (!mounted) {
+          setState(() => _isLoading = false);
+          return;
+        }
 
         if (token == null || token.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                "Usuario o contrasena incorrecta. Intentalo de nuevo.",
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-              ),
-              backgroundColor: AppColors.danger,
-              behavior: SnackBarBehavior.floating,
-            ),
+          setState(() => _isLoading = false);
+          SafeSnackBar.showError(
+            context,
+            "Usuario o contrasena incorrecta. Intentalo de nuevo.",
           );
           return;
         }
 
         final storage = const FlutterSecureStorage();
         final role = await storage.read(key: "role");
+
+        setState(() => _isLoading = false);
 
         if (role == "admin") {
           Navigator.pushReplacement(
@@ -103,7 +100,12 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
           );
         }
       } catch (e) {
-        if (!mounted) return;
+        if (!mounted) {
+          setState(() => _isLoading = false);
+          return;
+        }
+        setState(() => _isLoading = false);
+
         String errorMessage = e is LoginException
             ? e.message
             : "Error inesperado. Intentalo mas tarde.";
@@ -120,18 +122,7 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
           errorMessage = "Credenciales invalidas. Revisa tus datos.";
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              errorMessage,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-            ),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        SafeSnackBar.showError(context, errorMessage);
       }
     }
   }
@@ -204,7 +195,7 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
     final headerColor = isDark ? AppColors.textDark : AppColors.white;
     final subtitleColor = isDark
         ? AppColors.subtitleDark
-        : AppColors.white.withOpacity(0.84);
+        : AppColors.white.withValues(alpha: 0.84);
 
     return Column(
       children: [
@@ -217,7 +208,7 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: AppColors.black.withOpacity(0.12),
+                color: AppColors.black.withValues(alpha: 0.12),
                 blurRadius: 24,
                 offset: const Offset(0, 14),
               ),
@@ -250,29 +241,14 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
   }
 
   Widget _buildLoginCard(bool isDark) {
-    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
     final textColor = isDark ? AppColors.textDark : AppColors.textLight;
     final subtitleColor = isDark
         ? AppColors.subtitleDark
         : AppColors.subtitleLight;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
 
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 430),
+    return SafeCard(
+      borderRadius: 28,
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withOpacity(isDark ? 0.20 : 0.10),
-            blurRadius: 28,
-            offset: const Offset(0, 18),
-          ),
-        ],
-      ),
       child: Form(
         key: _formKey,
         child: Column(
@@ -299,10 +275,10 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
             TextFormField(
               controller: _userController,
               style: GoogleFonts.poppins(color: textColor),
-              decoration: _inputDecoration(
-                isDark: isDark,
-                hintText: "Usuario",
-                icon: Icons.person_outline_rounded,
+              decoration: safeInputDecoration(
+                context,
+                labelText: "Usuario",
+                prefixIcon: Icons.person_outline_rounded,
               ),
               validator: (v) => v!.isEmpty ? "Ingrese su usuario" : null,
             ),
@@ -311,10 +287,10 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
               controller: _passController,
               obscureText: !_isPasswordVisible,
               style: GoogleFonts.poppins(color: textColor),
-              decoration: _inputDecoration(
-                isDark: isDark,
-                hintText: "Contrasena",
-                icon: Icons.lock_outline_rounded,
+              decoration: safeInputDecoration(
+                context,
+                labelText: "Contrasena",
+                prefixIcon: Icons.lock_outline_rounded,
                 suffixIcon: IconButton(
                   icon: Icon(
                     _isPasswordVisible
@@ -352,9 +328,11 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
               ),
             ),
             const SizedBox(height: 14),
-            _GradientSubmitButton(
+            SafeButton(
               label: "Iniciar sesion",
               icon: Icons.login_rounded,
+              isLoading: _isLoading,
+              fullWidth: true,
               onPressed: _login,
             ),
             const SizedBox(height: 18),
@@ -391,98 +369,6 @@ class _LoginScreenUserState extends State<LoginScreenUser> {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required bool isDark,
-    required String hintText,
-    required IconData icon,
-    Widget? suffixIcon,
-  }) {
-    final fillColor = isDark
-        ? AppColors.backgroundDark.withOpacity(0.55)
-        : AppColors.backgroundLight;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
-    final hintColor = isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
-
-    return InputDecoration(
-      filled: true,
-      fillColor: fillColor,
-      hintText: hintText,
-      hintStyle: GoogleFonts.poppins(color: hintColor, fontSize: 14),
-      prefixIcon: Icon(icon, color: hintColor),
-      suffixIcon: suffixIcon,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: borderColor),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: borderColor),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(
-          color: isDark ? AppColors.secondaryDark : AppColors.primary,
-          width: 1.6,
-        ),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: AppColors.danger),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: AppColors.danger, width: 1.4),
-      ),
-    );
-  }
-}
-
-class _GradientSubmitButton extends StatelessWidget {
-  const _GradientSubmitButton({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 54,
-      decoration: BoxDecoration(
-        gradient: AppColors.mainGradient,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.26),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 20),
-        label: Text(
-          label,
-          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w800),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          foregroundColor: AppColors.white,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
         ),
       ),
     );

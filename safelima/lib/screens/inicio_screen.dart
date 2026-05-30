@@ -6,6 +6,7 @@ import 'package:safelima/screens/home_screen.dart';
 import 'package:safelima/screens/splash_screen.dart';
 import 'package:safelima/services/user_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:safelima/widgets/safe_card.dart';
 
 class InicioAppScreen extends StatefulWidget {
   const InicioAppScreen({super.key});
@@ -58,7 +59,7 @@ class _InicioAppScreenState extends State<InicioAppScreen>
       AppData.citizen_id = int.parse(citizenId);
       await Future.delayed(const Duration(seconds: 1));
       if (!mounted) return;
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
@@ -81,9 +82,13 @@ class _InicioAppScreenState extends State<InicioAppScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.mainGradient),
+        decoration: isDark
+            ? const BoxDecoration(color: AppColors.backgroundDark)
+            : const BoxDecoration(gradient: AppColors.mainGradient),
         child: Stack(
           children: [
             const _DecorativeHalo(top: -110, right: -80, size: 260),
@@ -95,7 +100,7 @@ class _InicioAppScreenState extends State<InicioAppScreen>
                     horizontal: 24,
                     vertical: 32,
                   ),
-                  child: _buildLoadingCard(),
+                  child: _buildLoadingCard(isDark),
                 ),
               ),
             ),
@@ -105,23 +110,17 @@ class _InicioAppScreenState extends State<InicioAppScreen>
     );
   }
 
-  Widget _buildLoadingCard() {
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 420),
+  Widget _buildLoadingCard(bool isDark) {
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.subtitleLight;
+    final accentColor = isDark ? AppColors.secondaryDark : AppColors.primary;
+    final progressBg = isDark ? AppColors.borderDark : AppColors.borderLight;
+
+    return SafeCard(
+      borderRadius: 30,
       padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-      decoration: BoxDecoration(
-        color: AppColors.cardLight,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: AppColors.white.withOpacity(0.70)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withOpacity(0.12),
-            blurRadius: 32,
-            offset: const Offset(0, 20),
-          ),
-        ],
-      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -132,9 +131,13 @@ class _InicioAppScreenState extends State<InicioAppScreen>
               height: 122,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.backgroundLight,
+                color: isDark
+                    ? AppColors.backgroundDark
+                    : AppColors.backgroundLight,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.borderLight),
+                border: Border.all(
+                  color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                ),
               ),
               child: Image.asset("assets/images/SafeLima.png"),
             ),
@@ -143,17 +146,17 @@ class _InicioAppScreenState extends State<InicioAppScreen>
           Text(
             "SafeLima",
             style: GoogleFonts.poppins(
-              color: AppColors.textLight,
+              color: textColor,
               fontSize: 31,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            "Preparando informacion de seguridad para tu recorrido.",
+            "Preparando información de seguridad para tu recorrido.",
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              color: AppColors.subtitleLight,
+              color: subtitleColor,
               fontSize: 14.5,
               height: 1.45,
               fontWeight: FontWeight.w500,
@@ -165,16 +168,16 @@ class _InicioAppScreenState extends State<InicioAppScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.verified_user_outlined,
-                  color: AppColors.primary,
+                  color: accentColor,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  "Verificando sesion segura",
+                  "Verificando sesión segura",
                   style: GoogleFonts.poppins(
-                    color: AppColors.primary,
+                    color: accentColor,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -185,10 +188,10 @@ class _InicioAppScreenState extends State<InicioAppScreen>
           const SizedBox(height: 18),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
-            child: const LinearProgressIndicator(
+            child: LinearProgressIndicator(
               minHeight: 7,
-              color: AppColors.primary,
-              backgroundColor: AppColors.borderLight,
+              color: accentColor,
+              backgroundColor: progressBg,
             ),
           ),
         ],
@@ -214,6 +217,14 @@ class _DecorativeHalo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final circleColor = isDark
+        ? AppColors.borderDark.withValues(alpha: 0.20)
+        : AppColors.white.withValues(alpha: 0.10);
+    final borderColor = isDark
+        ? AppColors.borderDark.withValues(alpha: 0.24)
+        : AppColors.white.withValues(alpha: 0.14);
+
     return Positioned(
       top: top,
       right: right,
@@ -224,8 +235,8 @@ class _DecorativeHalo extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.white.withOpacity(0.10),
-          border: Border.all(color: AppColors.white.withOpacity(0.14)),
+          color: circleColor,
+          border: Border.all(color: borderColor),
         ),
       ),
     );

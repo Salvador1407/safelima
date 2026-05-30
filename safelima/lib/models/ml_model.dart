@@ -44,8 +44,9 @@ class MlModel {
       fechaEntrenamiento: json['fecha_entrenamiento'] != null
           ? DateTime.parse(json['fecha_entrenamiento'])
           : null,
-      dataset:
-          json['dataset'] != null ? Dataset.fromJson(json['dataset']) : null,
+      dataset: json['dataset'] != null
+          ? Dataset.fromJson(json['dataset'])
+          : null,
     );
   }
 

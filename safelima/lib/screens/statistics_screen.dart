@@ -8,6 +8,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/models/prediction_grid.dart';
 import 'package:safelima/services/prediction_grid_service.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_empty_state.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
+import 'package:safelima/widgets/safe_status_chip.dart';
+import 'package:safelima/widgets/safe_shimmer.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -99,21 +104,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   void _showStatisticsLoadError() {
     if (!mounted) return;
 
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text(_statisticsLoadErrorMessage),
-        backgroundColor: AppColors.danger,
-      ),
-    );
+    SafeSnackBar.showError(context, _statisticsLoadErrorMessage);
   }
 
   Color _bgColor(bool isDark) =>
       isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
-
-  Color _cardColor(bool isDark) =>
-      isDark ? AppColors.cardDark : AppColors.cardLight;
 
   Color _textColor(bool isDark) =>
       isDark ? AppColors.textDark : AppColors.textLight;
@@ -134,6 +129,19 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     if (score >= 2.5) return "ALTO";
     if (score >= 1.5) return "MEDIO";
     return "BAJO";
+  }
+
+  SafeStatusTone _riskToneFromLabel(String label) {
+    switch (label) {
+      case "ALTO":
+        return SafeStatusTone.danger;
+      case "MEDIO":
+        return SafeStatusTone.warning;
+      case "BAJO":
+        return SafeStatusTone.success;
+      default:
+        return SafeStatusTone.neutral;
+    }
   }
 
   IconData _riskIconFromTurn(String turn) {
@@ -229,7 +237,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     final bgColor = _bgColor(isDark);
-    final cardColor = _cardColor(isDark);
     final textColor = _textColor(isDark);
     final subtitleColor = _subtitleColor(isDark);
     final borderColor = _borderColor(isDark);
@@ -253,18 +260,24 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ],
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+          ? ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: 4,
+              itemBuilder: (context, index) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: SafeShimmer(
+                  width: double.infinity,
+                  height: 150,
+                  borderRadius: 18,
+                ),
+              ),
             )
           : SafeArea(
               child: RefreshIndicator(
                 onRefresh: _loadPredictions,
                 color: AppColors.primary,
                 child: _predictions.isEmpty
-                    ? _buildEmptyState(
-                        textColor: textColor,
-                        subtitleColor: subtitleColor,
-                      )
+                    ? _buildEmptyState()
                     : ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(18),
@@ -272,9 +285,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                           _buildHeader(isDark: isDark),
                           const SizedBox(height: 18),
                           _buildDashboardCard(
-                            isDark: isDark,
-                            cardColor: cardColor,
-                            borderColor: borderColor,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -367,28 +377,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  Widget _buildDashboardCard({
-    required bool isDark,
-    required Color cardColor,
-    required Color borderColor,
-    required Widget child,
-  }) {
-    return Container(
+  Widget _buildDashboardCard({required Widget child}) {
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor.withValues(alpha: 0.72)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withValues(alpha: isDark ? 0.18 : 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: child,
+      child: SafeCard(padding: const EdgeInsets.all(16), child: child),
     );
   }
 
@@ -512,49 +504,18 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  Widget _buildEmptyState({
-    required Color textColor,
-    required Color subtitleColor,
-  }) {
+  Widget _buildEmptyState() {
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(24),
       children: [
-        const SizedBox(height: 96),
-        Icon(Icons.bar_chart_outlined, size: 70, color: subtitleColor),
-        const SizedBox(height: 18),
-        Text(
-          "No hay datos estadísticos disponibles",
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: textColor,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          "Intenta nuevamente cuando la conexión sea estable.",
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(fontSize: 13, color: subtitleColor),
-        ),
-        const SizedBox(height: 20),
-        Center(
-          child: ElevatedButton.icon(
-            onPressed: _retryLoadPredictions,
-            icon: const Icon(Icons.refresh_rounded),
-            label: Text(
-              "Reintentar",
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
+        SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+        SafeEmptyState(
+          icon: Icons.bar_chart_outlined,
+          title: "No hay datos estadísticos disponibles",
+          message: "Intenta nuevamente cuando la conexión sea estable.",
+          actionLabel: "Reintentar",
+          onAction: _retryLoadPredictions,
         ),
       ],
     );
@@ -568,30 +529,15 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     required Color color,
     required IconData icon,
   }) {
-    final Color cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
     final Color textColor = isDark ? AppColors.textDark : AppColors.textLight;
     final Color subtitleColor = isDark
         ? AppColors.subtitleDark
         : AppColors.subtitleLight;
-    final Color borderColor = isDark
-        ? AppColors.borderDark
-        : AppColors.borderLight;
 
-    return Container(
+    return SafeCard(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor.withValues(alpha: 0.72)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withValues(alpha: isDark ? 0.16 : 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
+      borderRadius: 16,
       child: Row(
         children: [
           Container(
@@ -628,21 +574,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 12.5,
-                fontWeight: FontWeight.bold,
-                color: AppColors.white,
-              ),
-            ),
-          ),
+          SafeStatusChip(label: label, tone: _riskToneFromLabel(label)),
         ],
       ),
     );

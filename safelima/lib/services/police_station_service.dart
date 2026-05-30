@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:safelima/models/policestations.dart';
 
 class PoliceStationService {
-  final String baseUrl = "http://192.168.0.7:8080/policestations";
+  final String baseUrl =
+      "https://safelima-backend-1010928585686.us-central1.run.app/policestations";
 
   Future<List<PoliceStation>> getNearby({
     required double lat,

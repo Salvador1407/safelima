@@ -5,6 +5,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/models/policestations.dart';
 import 'package:safelima/screens/police_station_map_screen.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_empty_state.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
+import 'package:safelima/widgets/safe_status_chip.dart';
+import 'package:safelima/widgets/safe_shimmer.dart';
+
 import '../services/police_station_service.dart';
 
 class NearbyPoliceStationsScreen extends StatefulWidget {
@@ -51,16 +57,13 @@ class _NearbyPoliceStationsScreenState
         _stations = orderedStations.take(5).toList();
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() => _loading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("No se pudieron cargar las comisarías cercanas."),
-          backgroundColor: AppColors.danger,
-        ),
+      SafeSnackBar.showError(
+        context,
+        "No se pudieron cargar las comisarías cercanas.",
       );
     }
   }
@@ -89,77 +92,6 @@ class _NearbyPoliceStationsScreenState
     return degrees * math.pi / 180;
   }
 
-  List<BoxShadow> _softShadow(bool isDark) {
-    return [
-      BoxShadow(
-        color: AppColors.black.withValues(alpha: isDark ? 0.24 : 0.08),
-        blurRadius: 18,
-        offset: const Offset(0, 8),
-      ),
-    ];
-  }
-
-  Widget _buildEmptyState(
-    Color cardColor,
-    Color textColor,
-    Color subtitleColor,
-    bool isDark,
-  ) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: isDark ? AppColors.borderDark : AppColors.borderLight,
-            ),
-            boxShadow: _softShadow(isDark),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.local_police_outlined,
-                  color: AppColors.primary,
-                  size: 36,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "No se encontraron comisarías",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Intenta consultar otra zona del mapa.",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  height: 1.4,
-                  color: subtitleColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _infoRow(IconData icon, String text, Color color) {
     return Padding(
       padding: const EdgeInsets.only(top: 7),
@@ -181,124 +113,96 @@ class _NearbyPoliceStationsScreenState
 
   Widget _stationCard({
     required PoliceStation station,
-    required Color cardColor,
     required Color textColor,
     required Color subtitleColor,
     required bool isDark,
   }) {
     final distance = _distanceKmTo(station).toStringAsFixed(2);
 
-    return Container(
+    return SafeCard(
       margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? AppColors.borderDark : AppColors.borderLight,
-        ),
-        boxShadow: _softShadow(isDark),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PoliceStationMapScreen(station: station),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(Icons.local_police, color: AppColors.primary),
+      padding: EdgeInsets.zero,
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PoliceStationMapScreen(station: station),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            station.nombre,
-                            style: GoogleFonts.poppins(
-                              fontSize: 15.5,
-                              fontWeight: FontWeight.w700,
-                              color: textColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            "$distance km",
-                            style: GoogleFonts.poppins(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    _infoRow(
-                      Icons.place_outlined,
-                      station.direccion ?? "Sin dirección",
-                      subtitleColor,
-                    ),
-                    _infoRow(
-                      Icons.phone_outlined,
-                      station.telefono ?? "Sin teléfono",
-                      subtitleColor,
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Text(
-                          "Ver ubicación",
+              child: const Icon(Icons.local_police, color: AppColors.primary),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          station.nombre,
                           style: GoogleFonts.poppins(
-                            fontSize: 12.5,
+                            fontSize: 15.5,
                             fontWeight: FontWeight.w700,
-                            color: isDark
-                                ? AppColors.secondaryDark
-                                : AppColors.primary,
+                            color: textColor,
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      SafeStatusChip.info(label: "$distance km"),
+                    ],
+                  ),
+                  _infoRow(
+                    Icons.place_outlined,
+                    station.direccion ?? "Sin dirección",
+                    subtitleColor,
+                  ),
+                  _infoRow(
+                    Icons.phone_outlined,
+                    station.telefono ?? "Sin teléfono",
+                    subtitleColor,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Text(
+                        "Ver ubicación",
+                        style: GoogleFonts.poppins(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
                           color: isDark
                               ? AppColors.secondaryDark
                               : AppColors.primary,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 16,
+                        color: isDark
+                            ? AppColors.secondaryDark
+                            : AppColors.primary,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -310,7 +214,6 @@ class _NearbyPoliceStationsScreenState
     final bgColor = isDark
         ? AppColors.backgroundDark
         : AppColors.backgroundLight;
-    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
     final textColor = isDark ? AppColors.textDark : AppColors.textLight;
     final subtitleColor = isDark
         ? AppColors.subtitleDark
@@ -332,11 +235,24 @@ class _NearbyPoliceStationsScreenState
         ),
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+          ? ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: 4,
+              itemBuilder: (context, index) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: SafeShimmer(
+                  width: double.infinity,
+                  height: 140,
+                  borderRadius: 20,
+                ),
+              ),
             )
           : _stations.isEmpty
-          ? _buildEmptyState(cardColor, textColor, subtitleColor, isDark)
+          ? const SafeEmptyState(
+              icon: Icons.local_police_outlined,
+              title: "No se encontraron comisarías",
+              message: "Intenta consultar otra zona del mapa.",
+            )
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -360,7 +276,6 @@ class _NearbyPoliceStationsScreenState
                 ..._stations.map(
                   (station) => _stationCard(
                     station: station,
-                    cardColor: cardColor,
                     textColor: textColor,
                     subtitleColor: subtitleColor,
                     isDark: isDark,

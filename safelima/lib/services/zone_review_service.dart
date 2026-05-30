@@ -4,7 +4,8 @@ import 'package:safelima/models/summary.dart';
 import 'package:safelima/models/zone_review.dart';
 
 class ZoneReviewService {
-  final String baseUrl = "http://192.168.0.7:8080/zonereviews";
+  final String baseUrl =
+      "https://safelima-backend-1010928585686.us-central1.run.app/zonereviews";
 
   Future<ZoneReviewSummary> getReviewsByGrid(
     int gridId, {

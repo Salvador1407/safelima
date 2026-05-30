@@ -9,6 +9,10 @@ import 'package:safelima/core/app_data.dart';
 import 'package:safelima/screens/home_screen.dart';
 import 'package:safelima/screens/login_screen_user.dart';
 import 'package:safelima/services/user_service.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_input_decoration.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -57,11 +61,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     if (!_acceptTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Debes aceptar los términos y condiciones."),
-          backgroundColor: AppColors.warning,
-        ),
+      SafeSnackBar.showWarning(
+        context,
+        "Debes aceptar los términos y condiciones.",
       );
       return;
     }
@@ -84,11 +86,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await _persistRegistrationData(registrationData);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("✅ Registro exitoso. Bienvenido a SafeLima."),
-          backgroundColor: AppColors.success,
-        ),
+      SafeSnackBar.showSuccess(
+        context,
+        "✅ Registro exitoso. Bienvenido a SafeLima.",
       );
 
       Navigator.pushAndRemoveUntil(
@@ -146,9 +146,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _showRegisterError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppColors.danger),
-    );
+    SafeSnackBar.showError(context, message);
   }
 
   void _showTermsAndConditions() {
@@ -156,14 +154,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final titleColor = isDark ? AppColors.textDark : AppColors.textLight;
     final bodyColor = isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
     final accentColor = isDark ? AppColors.secondaryDark : AppColors.primary;
+    final dialogBg = isDark ? AppColors.cardDark : AppColors.cardLight;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: isDark ? AppColors.cardDark : AppColors.cardLight,
+          backgroundColor: dialogBg,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: borderColor, width: 0.9),
           ),
           title: Text(
             "Términos y condiciones",
@@ -307,64 +308,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Color _backgroundColor(bool isDark) {
-    return isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
-  }
-
-  Color _cardColor(bool isDark) {
-    return isDark ? AppColors.cardDark : AppColors.cardLight;
-  }
-
-  Color _textColor(bool isDark) {
-    return isDark ? AppColors.textDark : AppColors.white;
-  }
-
-  Color _inputTextColor(bool isDark) {
-    return isDark ? AppColors.textDark : AppColors.textLight;
-  }
-
-  Color _subtitleColor(bool isDark) {
-    return isDark ? AppColors.subtitleDark : Colors.white70;
-  }
-
-  Color _hintColor(bool isDark) {
-    return isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
-  }
-
-  Color _iconColor(bool isDark) {
-    return isDark ? AppColors.subtitleDark : Colors.grey;
-  }
-
-  InputDecoration _inputDecoration({
-    required bool isDark,
-    required String label,
-    required IconData icon,
-    Widget? suffixIcon,
-  }) {
-    return InputDecoration(
-      filled: true,
-      fillColor: _cardColor(isDark),
-      hintText: label,
-      hintStyle: GoogleFonts.poppins(color: _hintColor(isDark)),
-      prefixIcon: Icon(icon, color: _iconColor(isDark)),
-      suffixIcon: suffixIcon,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15),
-        borderSide: BorderSide(
-          color: isDark ? AppColors.borderDark : AppColors.borderLight,
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15),
-        borderSide: BorderSide(
-          color: isDark ? AppColors.secondaryDark : AppColors.primary,
-          width: 1.5,
-        ),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -378,11 +321,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final bgColor = _backgroundColor(isDark);
-    final textColor = _textColor(isDark);
-    final subtitleColor = _subtitleColor(isDark);
-    final inputTextColor = _inputTextColor(isDark);
+    final bgColor = isDark
+        ? AppColors.backgroundDark
+        : AppColors.backgroundLight;
+    final textColor = isDark ? AppColors.textDark : AppColors.white;
+    final subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.white.withValues(alpha: 0.84);
+    final inputTextColor = isDark ? AppColors.textDark : AppColors.textLight;
 
     return Scaffold(
       body: Container(
@@ -392,250 +338,227 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    Image.asset("assets/images/SafeLima.png", height: 120),
-                    const SizedBox(height: 10),
-
-                    Text(
-                      "Crear Cuenta",
-                      style: GoogleFonts.poppins(
-                        color: textColor,
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                      ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                children: [
+                  Image.asset("assets/images/SafeLima.png", height: 120),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Crear Cuenta",
+                    style: GoogleFonts.poppins(
+                      color: textColor,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 25),
-
-                    _buildTextField(
-                      isDark: isDark,
-                      controller: _nameController,
-                      label: "Nombre completo",
-                      icon: Icons.person_outline,
-                      textColor: inputTextColor,
-                    ),
-                    const SizedBox(height: 12),
-
-                    _buildTextField(
-                      isDark: isDark,
-                      controller: _emailController,
-                      label: "Correo electrónico",
-                      icon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
-                      textColor: inputTextColor,
-                      validator: (v) {
-                        final value = v?.trim() ?? '';
-                        if (value.isEmpty) return "Ingrese Correo electrónico";
-                        final emailRegex = RegExp(
-                          r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
-                        );
-                        if (!emailRegex.hasMatch(value)) {
-                          return "Ingrese un correo válido";
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    _buildTextField(
-                      isDark: isDark,
-                      controller: _userController,
-                      label: "Usuario",
-                      icon: Icons.account_circle_outlined,
-                      textColor: inputTextColor,
-                    ),
-                    const SizedBox(height: 12),
-
-                    _buildPasswordField(
-                      isDark: isDark,
-                      controller: _passController,
-                      label: "Contraseña",
-                      isVisible: _isPasswordVisible,
-                      textColor: inputTextColor,
-                      toggleVisibility: () => setState(
-                        () => _isPasswordVisible = !_isPasswordVisible,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    _buildPasswordField(
-                      isDark: isDark,
-                      controller: _confirmPassController,
-                      label: "Confirmar contraseña",
-                      isVisible: _isConfirmPasswordVisible,
-                      textColor: inputTextColor,
-                      toggleVisibility: () => setState(
-                        () => _isConfirmPasswordVisible =
-                            !_isConfirmPasswordVisible,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return "Ingrese Confirmar contraseña";
-                        }
-                        if (v != _passController.text) {
-                          return "Las contraseñas no coinciden";
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 15),
-
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.cardDark.withOpacity(0.8)
-                            : Colors.white.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDark
-                              ? AppColors.borderDark
-                              : Colors.white.withOpacity(0.2),
-                        ),
-                      ),
-                      child: Row(
+                  ),
+                  const SizedBox(height: 25),
+                  SafeCard(
+                    borderRadius: 28,
+                    padding: const EdgeInsets.all(22),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
                         children: [
-                          Checkbox(
-                            value: _acceptTerms,
-                            onChanged: (v) =>
-                                setState(() => _acceptTerms = v ?? false),
-                            activeColor: isDark
-                                ? AppColors.secondaryDark
-                                : AppColors.white,
-                            checkColor: isDark
-                                ? AppColors.white
-                                : AppColors.primary,
-                            side: BorderSide(
-                              color: isDark
-                                  ? AppColors.subtitleDark
-                                  : Colors.white70,
+                          _buildTextField(
+                            context,
+                            controller: _nameController,
+                            label: "Nombre completo",
+                            icon: Icons.person_outline,
+                            textColor: inputTextColor,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                            context,
+                            controller: _emailController,
+                            label: "Correo electrónico",
+                            icon: Icons.email_outlined,
+                            keyboardType: TextInputType.emailAddress,
+                            textColor: inputTextColor,
+                            validator: (v) {
+                              final value = v?.trim() ?? '';
+                              if (value.isEmpty) {
+                                return "Ingrese Correo electrónico";
+                              }
+                              final emailRegex = RegExp(
+                                r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                              );
+                              if (!emailRegex.hasMatch(value)) {
+                                return "Ingrese un correo válido";
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                            context,
+                            controller: _userController,
+                            label: "Usuario",
+                            icon: Icons.account_circle_outlined,
+                            textColor: inputTextColor,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildPasswordField(
+                            context,
+                            controller: _passController,
+                            label: "Contraseña",
+                            isVisible: _isPasswordVisible,
+                            textColor: inputTextColor,
+                            toggleVisibility: () => setState(
+                              () => _isPasswordVisible = !_isPasswordVisible,
                             ),
                           ),
-                          Expanded(
-                            child: Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
+                          const SizedBox(height: 12),
+                          _buildPasswordField(
+                            context,
+                            controller: _confirmPassController,
+                            label: "Confirmar contraseña",
+                            isVisible: _isConfirmPasswordVisible,
+                            textColor: inputTextColor,
+                            toggleVisibility: () => setState(
+                              () => _isConfirmPasswordVisible =
+                                  !_isConfirmPasswordVisible,
+                            ),
+                            validator: (v) {
+                              if (v == null || v.isEmpty) {
+                                return "Ingrese Confirmar contraseña";
+                              }
+                              if (v != _passController.text) {
+                                return "Las contraseñas no coinciden";
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.backgroundDark.withValues(
+                                      alpha: 0.55,
+                                    )
+                                  : AppColors.backgroundLight,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark
+                                    ? AppColors.borderDark
+                                    : AppColors.borderLight,
+                              ),
+                            ),
+                            child: Row(
                               children: [
-                                Text(
-                                  "Acepto los ",
-                                  style: GoogleFonts.poppins(
-                                    color: subtitleColor,
-                                    fontSize: 13,
+                                Checkbox(
+                                  value: _acceptTerms,
+                                  onChanged: (v) =>
+                                      setState(() => _acceptTerms = v ?? false),
+                                  activeColor: isDark
+                                      ? AppColors.secondaryDark
+                                      : AppColors.primary,
+                                  checkColor: AppColors.white,
+                                  side: BorderSide(
+                                    color: isDark
+                                        ? AppColors.subtitleDark
+                                        : AppColors.subtitleLight,
                                   ),
                                 ),
-                                InkWell(
-                                  onTap: _showTermsAndConditions,
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    child: Text(
-                                      "Términos y condiciones",
-                                      style: GoogleFonts.poppins(
-                                        color: isDark
-                                            ? AppColors.secondaryDark
-                                            : AppColors.white,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        decoration: TextDecoration.underline,
-                                        decorationColor: isDark
-                                            ? AppColors.secondaryDark
-                                            : AppColors.white,
+                                Expanded(
+                                  child: Wrap(
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      Text(
+                                        "Acepto los ",
+                                        style: GoogleFonts.poppins(
+                                          color: isDark
+                                              ? AppColors.subtitleDark
+                                              : AppColors.subtitleLight,
+                                          fontSize: 13,
+                                        ),
                                       ),
-                                    ),
+                                      InkWell(
+                                        onTap: _showTermsAndConditions,
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 4,
+                                          ),
+                                          child: Text(
+                                            "Términos y condiciones",
+                                            style: GoogleFonts.poppins(
+                                              color: isDark
+                                                  ? AppColors.secondaryDark
+                                                  : AppColors.primary,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              decorationColor: isDark
+                                                  ? AppColors.secondaryDark
+                                                  : AppColors.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ),
+                          const SizedBox(height: 20),
+                          SafeButton(
+                            label: "Registrarse",
+                            isLoading: _isLoading,
+                            fullWidth: true,
+                            onPressed: _onRegisterPressed,
+                          ),
                         ],
                       ),
                     ),
-
-                    const SizedBox(height: 15),
-
-                    _isLoading
-                        ? CircularProgressIndicator(
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "¿Ya tienes una cuenta? ",
+                        style: GoogleFonts.poppins(
+                          color: subtitleColor,
+                          fontSize: 13,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const LoginScreenUser(),
+                                  ),
+                                );
+                              },
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(0, 0),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          "Inicia sesión",
+                          style: GoogleFonts.poppins(
                             color: isDark
                                 ? AppColors.secondaryDark
                                 : AppColors.white,
-                          )
-                        : SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _onRegisterPressed,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isDark
-                                    ? AppColors.primaryDark
-                                    : AppColors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              child: Text(
-                                "Registrarse",
-                                style: GoogleFonts.poppins(
-                                  color: isDark
-                                      ? AppColors.white
-                                      : AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                    const SizedBox(height: 12),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "¿Ya tienes una cuenta? ",
-                          style: GoogleFonts.poppins(
-                            color: subtitleColor,
                             fontSize: 13,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        TextButton(
-                          onPressed: _isLoading
-                              ? null
-                              : () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const LoginScreenUser(),
-                                    ),
-                                  );
-                                },
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: const Size(0, 0),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: Text(
-                            "Inicia sesión",
-                            style: GoogleFonts.poppins(
-                              color: isDark
-                                  ? AppColors.secondaryDark
-                                  : AppColors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
@@ -644,8 +567,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildTextField({
-    required bool isDark,
+  Widget _buildTextField(
+    BuildContext context, {
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -660,12 +583,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       validator:
           validator ??
           (v) => v == null || v.trim().isEmpty ? "Ingrese $label" : null,
-      decoration: _inputDecoration(isDark: isDark, label: label, icon: icon),
+      decoration: safeInputDecoration(
+        context,
+        labelText: label,
+        prefixIcon: icon,
+      ),
     );
   }
 
-  Widget _buildPasswordField({
-    required bool isDark,
+  Widget _buildPasswordField(
+    BuildContext context, {
     required TextEditingController controller,
     required String label,
     required bool isVisible,
@@ -673,20 +600,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required Color textColor,
     FormFieldValidator<String>? validator,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hintColor = isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
+
     return TextFormField(
       controller: controller,
       obscureText: !isVisible,
       style: GoogleFonts.poppins(color: textColor),
       validator:
           validator ?? (v) => v == null || v.isEmpty ? "Ingrese $label" : null,
-      decoration: _inputDecoration(
-        isDark: isDark,
-        label: label,
-        icon: Icons.lock_outline,
+      decoration: safeInputDecoration(
+        context,
+        labelText: label,
+        prefixIcon: Icons.lock_outline,
         suffixIcon: IconButton(
           icon: Icon(
             isVisible ? Icons.visibility : Icons.visibility_off,
-            color: _iconColor(isDark),
+            color: hintColor,
           ),
           onPressed: toggleVisibility,
         ),

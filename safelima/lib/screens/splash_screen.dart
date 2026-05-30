@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/screens/login_screen_user.dart';
 import 'package:safelima/screens/register_screen.dart';
+import 'package:safelima/widgets/safe_card.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -52,9 +53,13 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.mainGradient),
+        decoration: isDark
+            ? const BoxDecoration(color: AppColors.backgroundDark)
+            : const BoxDecoration(gradient: AppColors.mainGradient),
         child: Stack(
           children: [
             const _DecorativeCircle(top: -90, right: -70, size: 210),
@@ -72,13 +77,15 @@ class _SplashScreenState extends State<SplashScreen>
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const SizedBox(height: 8),
-                          _buildBrandHero(),
-                          _buildWelcomeCard(),
+                          _buildBrandHero(isDark),
+                          _buildWelcomeCard(isDark),
                           Text(
-                            "Proyecto academico UPC",
+                            "Proyecto académico UPC",
                             textAlign: TextAlign.center,
                             style: GoogleFonts.manrope(
-                              color: AppColors.white.withOpacity(0.72),
+                              color: isDark
+                                  ? AppColors.subtitleDark
+                                  : AppColors.white.withValues(alpha: 0.72),
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -96,7 +103,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  Widget _buildBrandHero() {
+  Widget _buildBrandHero(bool isDark) {
     return Column(
       children: [
         FadeTransition(
@@ -110,7 +117,9 @@ class _SplashScreenState extends State<SplashScreen>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.black.withOpacity(0.14),
+                  color: AppColors.black.withValues(
+                    alpha: isDark ? 0.24 : 0.14,
+                  ),
                   blurRadius: 28,
                   offset: const Offset(0, 16),
                 ),
@@ -125,17 +134,19 @@ class _SplashScreenState extends State<SplashScreen>
           style: GoogleFonts.manrope(
             fontSize: 36,
             fontWeight: FontWeight.w800,
-            color: AppColors.white,
+            color: isDark ? AppColors.textDark : AppColors.white,
           ),
         ),
         const SizedBox(height: 10),
         Text(
-          "Prevencion, zonas seguras y alertas ciudadanas para moverte con mas confianza.",
+          "Prevención, zonas seguras y alertas ciudadanas para moverte con más confianza.",
           textAlign: TextAlign.center,
           style: GoogleFonts.manrope(
             fontSize: 16,
             height: 1.45,
-            color: AppColors.white.withOpacity(0.86),
+            color: isDark
+                ? AppColors.subtitleDark
+                : AppColors.white.withValues(alpha: 0.86),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -143,40 +154,35 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  Widget _buildWelcomeCard() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 32, bottom: 24),
+  Widget _buildWelcomeCard(bool isDark) {
+    final accentColor = isDark ? AppColors.secondaryDark : AppColors.primary;
+    final outlineBorderColor = isDark
+        ? AppColors.borderDark
+        : AppColors.white.withValues(alpha: 0.65);
+
+    return SafeCard(
+      borderColor: outlineBorderColor,
+      borderRadius: 28,
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: AppColors.cardLight,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.white.withOpacity(0.65)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withOpacity(0.12),
-            blurRadius: 30,
-            offset: const Offset(0, 18),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SafetyPoint(
             icon: Icons.shield_outlined,
             title: "Seguridad preventiva",
-            subtitle: "Consulta informacion de riesgo antes de salir.",
+            subtitle: "Consulta información de riesgo antes de salir.",
+            isDark: isDark,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           _SafetyPoint(
             icon: Icons.route_outlined,
             title: "Rutas y zonas seguras",
-            subtitle: "Apoyate en datos para planificar tus recorridos.",
+            subtitle: "Apóyate en datos para planificar tus recorridos.",
+            isDark: isDark,
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 24),
           _GradientActionButton(
-            label: "Iniciar sesion",
+            label: "Iniciar sesión",
             icon: Icons.login_rounded,
             onPressed: _goToLogin,
           ),
@@ -191,8 +197,10 @@ class _SplashScreenState extends State<SplashScreen>
                 style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.borderLight),
+                foregroundColor: accentColor,
+                side: BorderSide(
+                  color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -222,6 +230,14 @@ class _DecorativeCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final circleColor = isDark
+        ? AppColors.borderDark.withValues(alpha: 0.20)
+        : AppColors.white.withValues(alpha: 0.10);
+    final borderColor = isDark
+        ? AppColors.borderDark.withValues(alpha: 0.24)
+        : AppColors.white.withValues(alpha: 0.12);
+
     return Positioned(
       top: top,
       right: right,
@@ -232,8 +248,8 @@ class _DecorativeCircle extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.white.withOpacity(0.10),
-          border: Border.all(color: AppColors.white.withOpacity(0.12)),
+          color: circleColor,
+          border: Border.all(color: borderColor),
         ),
       ),
     );
@@ -245,24 +261,33 @@ class _SafetyPoint extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.isDark,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
+    final titleColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.subtitleLight;
+    final iconColor = isDark ? AppColors.secondaryDark : AppColors.primary;
+    final iconBgColor = iconColor.withValues(alpha: 0.12);
+
     return Row(
       children: [
         Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.10),
+            color: iconBgColor,
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(icon, color: AppColors.primary, size: 24),
+          child: Icon(icon, color: iconColor, size: 24),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -272,7 +297,7 @@ class _SafetyPoint extends StatelessWidget {
               Text(
                 title,
                 style: GoogleFonts.manrope(
-                  color: AppColors.textLight,
+                  color: titleColor,
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                 ),
@@ -281,7 +306,7 @@ class _SafetyPoint extends StatelessWidget {
               Text(
                 subtitle,
                 style: GoogleFonts.manrope(
-                  color: AppColors.subtitleLight,
+                  color: subtitleColor,
                   fontSize: 12.5,
                   height: 1.35,
                 ),
@@ -314,7 +339,7 @@ class _GradientActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.28),
+            color: AppColors.primary.withValues(alpha: 0.28),
             blurRadius: 18,
             offset: const Offset(0, 10),
           ),
@@ -325,10 +350,7 @@ class _GradientActionButton extends StatelessWidget {
         icon: Icon(icon, size: 20),
         label: Text(
           label,
-          style: GoogleFonts.manrope(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-          ),
+          style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,

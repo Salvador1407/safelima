@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/services/zone_review_service.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_input_decoration.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
 
 class CreateZoneReviewScreen extends StatefulWidget {
   final int gridId;
@@ -28,35 +32,21 @@ class _CreateZoneReviewScreenState extends State<CreateZoneReviewScreen> {
 
   Color _backgroundColor(bool isDark) =>
       isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
-  Color _cardColor(bool isDark) =>
-      isDark ? AppColors.cardDark : AppColors.cardLight;
   Color _textColor(bool isDark) =>
       isDark ? AppColors.textDark : AppColors.textLight;
   Color _subtitleColor(bool isDark) =>
       isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
-  Color _borderColor(bool isDark) =>
-      isDark ? AppColors.borderDark : AppColors.borderLight;
 
   Future<void> _submitReview() async {
     final comment = _commentController.text.trim();
 
     if (_rating < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Selecciona una calificación"),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      SafeSnackBar.showWarning(context, "Selecciona una calificación");
       return;
     }
 
     if (comment.length < 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Escribe un comentario válido"),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      SafeSnackBar.showWarning(context, "Escribe un comentario válido");
       return;
     }
 
@@ -72,23 +62,13 @@ class _CreateZoneReviewScreenState extends State<CreateZoneReviewScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Reseña publicada correctamente"),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      SafeSnackBar.showSuccess(context, "Reseña publicada correctamente");
 
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error al publicar reseña: $e"),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      SafeSnackBar.showError(context, "Error al publicar reseña: $e");
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -117,13 +97,8 @@ class _CreateZoneReviewScreenState extends State<CreateZoneReviewScreen> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Container(
+        child: SafeCard(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _cardColor(isDark),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _borderColor(isDark)),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -180,47 +155,21 @@ class _CreateZoneReviewScreenState extends State<CreateZoneReviewScreen> {
                 maxLines: 5,
                 maxLength: 500,
                 style: GoogleFonts.poppins(color: _textColor(isDark)),
-                decoration: InputDecoration(
+                decoration: safeInputDecoration(
+                  context,
+                  labelText: "Comentario",
                   hintText: "Describe cómo fue tu experiencia en esta zona...",
-                  hintStyle: GoogleFonts.poppins(color: _subtitleColor(isDark)),
-                  filled: true,
-                  fillColor: _backgroundColor(isDark),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  prefixIcon: Icons.rate_review_outlined,
                 ),
               ),
 
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: SafeButton.primary(
                   onPressed: _loading ? null : _submitReview,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark
-                        ? AppColors.primaryDark
-                        : AppColors.primary,
-                    foregroundColor: AppColors.white,
-                    minimumSize: const Size(double.infinity, 48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: AppColors.white,
-                          ),
-                        )
-                      : Text(
-                          "Publicar reseña",
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                  label: "Publicar reseña",
+                  isLoading: _loading,
                 ),
               ),
             ],

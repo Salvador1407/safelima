@@ -8,6 +8,10 @@ import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/core/app_data.dart';
 import 'package:safelima/models/favorite_area.dart';
 import 'package:safelima/services/favorite_area_service.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_empty_state.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
+import 'package:safelima/widgets/safe_shimmer.dart';
 
 class FavoriteZonesScreen extends StatefulWidget {
   const FavoriteZonesScreen({super.key});
@@ -37,12 +41,7 @@ class _FavoriteZonesScreenState extends State<FavoriteZonesScreen> {
 
     if (!connected) {
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("No se pudieron cargar favoritos"),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      SafeSnackBar.showWarning(context, "No se pudieron cargar favoritos");
       return;
     }
 
@@ -60,12 +59,7 @@ class _FavoriteZonesScreenState extends State<FavoriteZonesScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("No se pudieron cargar favoritos"),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      SafeSnackBar.showError(context, "No se pudieron cargar favoritos");
     }
   }
 
@@ -90,12 +84,7 @@ class _FavoriteZonesScreenState extends State<FavoriteZonesScreen> {
     if (!mounted) return;
 
     if (!connected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(_favoriteUpdateErrorMessage),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      SafeSnackBar.showError(context, _favoriteUpdateErrorMessage);
       return;
     }
 
@@ -107,20 +96,10 @@ class _FavoriteZonesScreenState extends State<FavoriteZonesScreen> {
         _favorites.removeWhere((f) => f.id == fav.id);
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Zona eliminada de favoritos."),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      SafeSnackBar.showWarning(context, "Zona eliminada de favoritos.");
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(_favoriteUpdateErrorMessage),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      SafeSnackBar.showError(context, _favoriteUpdateErrorMessage);
     }
   }
 
@@ -132,62 +111,6 @@ class _FavoriteZonesScreenState extends State<FavoriteZonesScreen> {
         offset: const Offset(0, 8),
       ),
     ];
-  }
-
-  Widget _buildEmptyState(Color subtitleColor, Color cardColor, bool isDark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: isDark ? AppColors.borderDark : AppColors.borderLight,
-            ),
-            boxShadow: _softShadow(isDark),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.pinkAccent.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.favorite_border,
-                  color: Colors.pinkAccent,
-                  size: 36,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "Aún no tienes zonas favoritas",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.textDark : AppColors.textLight,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Guarda zonas desde el mapa para volver a ellas rápidamente.",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  height: 1.4,
-                  color: subtitleColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildHeader(
@@ -264,21 +187,16 @@ class _FavoriteZonesScreenState extends State<FavoriteZonesScreen> {
 
   Widget _buildFavoriteCard({
     required FavoriteArea fav,
-    required Color cardColor,
     required Color textColor,
     required Color subtitleColor,
-    required bool isDark,
   }) {
-    return Container(
+    return SafeCard(
       margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? AppColors.borderDark : AppColors.borderLight,
-        ),
-        boxShadow: _softShadow(isDark),
-      ),
+      padding: EdgeInsets.zero,
+      borderRadius: 20,
+      onTap: () {
+        Navigator.pop(context, fav);
+      },
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -315,9 +233,6 @@ class _FavoriteZonesScreenState extends State<FavoriteZonesScreen> {
           icon: const Icon(Icons.delete_outline, color: AppColors.danger),
           onPressed: () => _removeFavorite(fav),
         ),
-        onTap: () {
-          Navigator.pop(context, fav);
-        },
       ),
     );
   }
@@ -350,11 +265,26 @@ class _FavoriteZonesScreenState extends State<FavoriteZonesScreen> {
         ),
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+          ? ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: 4,
+              itemBuilder: (context, index) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: SafeShimmer(
+                  width: double.infinity,
+                  height: 100,
+                  borderRadius: 20,
+                ),
+              ),
             )
           : _favorites.isEmpty
-          ? _buildEmptyState(subtitleColor, cardColor, isDark)
+          ? const SafeEmptyState(
+              icon: Icons.favorite_border,
+              iconColor: Colors.pinkAccent,
+              title: "Aún no tienes zonas favoritas",
+              message:
+                  "Guarda zonas desde el mapa para volver a ellas rápidamente.",
+            )
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -363,10 +293,8 @@ class _FavoriteZonesScreenState extends State<FavoriteZonesScreen> {
                 ..._favorites.map(
                   (fav) => _buildFavoriteCard(
                     fav: fav,
-                    cardColor: cardColor,
                     textColor: textColor,
                     subtitleColor: subtitleColor,
-                    isDark: isDark,
                   ),
                 ),
               ],

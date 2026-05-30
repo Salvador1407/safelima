@@ -33,9 +33,9 @@ class _AdminMetricsScreenState extends State<AdminMetricsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error al cargar métricas: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error al cargar métricas: $e")));
     }
   }
 
@@ -75,7 +75,7 @@ class _AdminMetricsScreenState extends State<AdminMetricsScreen> {
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -118,77 +118,77 @@ class _AdminMetricsScreenState extends State<AdminMetricsScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _metrics == null
-              ? const Center(child: Text("No hay métricas disponibles"))
-              : RefreshIndicator(
-                  onRefresh: _loadMetrics,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      _buildCard(
-                        "Total de reportes",
-                        _metrics!.totalReportes.toString(),
-                        Icons.warning_amber_rounded,
-                      ),
-
-                      _buildSectionTitle("Por estado"),
-                      _buildSimpleList(
-                        _metrics!.porEstado.map((e) {
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(e.estado),
-                            trailing: Text(
-                              e.total.toString(),
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-
-                      _buildSectionTitle("Por nivel de riesgo"),
-                      _buildSimpleList(
-                        _metrics!.porNivelRiesgo.map((e) {
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(e.nivelRiesgo),
-                            trailing: Text(
-                              e.total.toString(),
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-
-                      _buildSectionTitle("Zonas críticas"),
-                      _buildSimpleList(
-                        _metrics!.porZona.take(5).map((e) {
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(e.gridNombre),
-                            subtitle: Text("Grid ID: ${e.gridId}"),
-                            trailing: Text(
-                              e.total.toString(),
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-
-                      _buildSectionTitle("Evolución por fecha"),
-                      _buildSimpleList(
-                        _metrics!.porFecha.map((e) {
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(e.fecha),
-                            trailing: Text(
-                              e.total.toString(),
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
+          ? const Center(child: Text("No hay métricas disponibles"))
+          : RefreshIndicator(
+              onRefresh: _loadMetrics,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildCard(
+                    "Total de reportes",
+                    _metrics!.totalReportes.toString(),
+                    Icons.warning_amber_rounded,
                   ),
-                ),
+
+                  _buildSectionTitle("Por estado"),
+                  _buildSimpleList(
+                    _metrics!.porEstado.map((e) {
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(e.estado),
+                        trailing: Text(
+                          e.total.toString(),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                  _buildSectionTitle("Por nivel de riesgo"),
+                  _buildSimpleList(
+                    _metrics!.porNivelRiesgo.map((e) {
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(e.nivelRiesgo),
+                        trailing: Text(
+                          e.total.toString(),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                  _buildSectionTitle("Zonas críticas"),
+                  _buildSimpleList(
+                    _metrics!.porZona.take(5).map((e) {
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(e.gridNombre),
+                        subtitle: Text("Grid ID: ${e.gridId}"),
+                        trailing: Text(
+                          e.total.toString(),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                  _buildSectionTitle("Evolución por fecha"),
+                  _buildSimpleList(
+                    _metrics!.porFecha.map((e) {
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(e.fecha),
+                        trailing: Text(
+                          e.total.toString(),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }

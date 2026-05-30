@@ -6,6 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/screens/my_reports_screen.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_empty_state.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
+import 'package:safelima/widgets/safe_status_chip.dart';
+import 'package:safelima/widgets/safe_shimmer.dart';
 import '../../models/user_alert.dart';
 import '../../services/user_alert_service.dart';
 
@@ -76,12 +81,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   void _showLoadAlertsError() {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(_loadAlertsErrorMessage),
-        backgroundColor: AppColors.danger,
-      ),
-    );
+    SafeSnackBar.showError(context, _loadAlertsErrorMessage);
   }
 
   Future<void> _refreshAlerts() async {
@@ -90,10 +90,6 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   Color _backgroundColor(bool isDark) {
     return isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
-  }
-
-  Color _cardColor(bool isDark) {
-    return isDark ? AppColors.cardDark : AppColors.cardLight;
   }
 
   Color _textColor(bool isDark) {
@@ -125,8 +121,17 @@ class _AlertsScreenState extends State<AlertsScreen> {
         ),
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+          ? ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: 5,
+              itemBuilder: (context, index) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: SafeShimmer(
+                  width: double.infinity,
+                  height: 160,
+                  borderRadius: 18,
+                ),
+              ),
             )
           : RefreshIndicator(
               color: AppColors.primary,
@@ -137,46 +142,18 @@ class _AlertsScreenState extends State<AlertsScreen> {
               child: _alerts.isEmpty
                   ? ListView(
                       padding: const EdgeInsets.all(24),
-                      children: [
-                        const SizedBox(height: 120),
-                        Icon(
-                          Icons.notifications_off_outlined,
-                          size: 64,
-                          color: isDark
-                              ? AppColors.subtitleDark
-                              : AppColors.subtitleLight,
-                        ),
-                        const SizedBox(height: 16),
-                        Center(
-                          child: Text(
-                            "No hay alertas registradas",
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? AppColors.textDark
-                                  : AppColors.textLight,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Center(
-                          child: Text(
-                            "Desliza hacia abajo para actualizar.",
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: isDark
-                                  ? AppColors.subtitleDark
-                                  : AppColors.subtitleLight,
-                            ),
-                          ),
+                      children: const [
+                        SizedBox(height: 60),
+                        SafeEmptyState(
+                          icon: Icons.notifications_off_outlined,
+                          title: "No hay alertas registradas",
+                          message: "Desliza hacia abajo para actualizar.",
                         ),
                       ],
                     )
                   : Column(
                       children: [
                         _buildMyReportsAccess(isDark),
-
                         Expanded(
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(
@@ -197,14 +174,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 
   Widget _buildMyReportsAccess(bool isDark) {
-    return Container(
+    return SafeCard(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : AppColors.cardLight,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primary.withOpacity(0.35)),
-      ),
+      borderColor: AppColors.primary.withValues(alpha: 0.35),
       child: Row(
         children: [
           const Icon(Icons.assignment_outlined, color: AppColors.primary),
@@ -250,169 +223,136 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   Widget _buildAlertCard(UserAlert alert, bool isDark) {
     late Color statusColor;
-    late IconData icon;
-    late String label;
+    late SafeStatusChip riskChip;
 
     switch (alert.nivelRiesgo.toLowerCase()) {
       case "alto":
         statusColor = AppColors.danger;
-        icon = Icons.warning_amber_rounded;
-        label = "ALTO RIESGO";
+        riskChip = const SafeStatusChip.danger(
+          label: "ALTO RIESGO",
+          icon: Icons.warning_amber_rounded,
+        );
         break;
       case "medio":
         statusColor = AppColors.warning;
-        icon = Icons.error_outline;
-        label = "RIESGO MEDIO";
+        riskChip = const SafeStatusChip.warning(
+          label: "RIESGO MEDIO",
+          icon: Icons.error_outline,
+        );
         break;
       case "bajo":
         statusColor = AppColors.success;
-        icon = Icons.verified_rounded;
-        label = "ZONA SEGURA";
+        riskChip = const SafeStatusChip.success(
+          label: "ZONA SEGURA",
+          icon: Icons.verified_rounded,
+        );
         break;
       default:
         statusColor = isDark ? AppColors.subtitleDark : Colors.grey;
-        icon = Icons.info_outline;
-        label = "INDEFINIDO";
+        riskChip = const SafeStatusChip.neutral(
+          label: "INDEFINIDO",
+          icon: Icons.info_outline,
+        );
     }
 
-    final cardColor = _cardColor(isDark);
     final textColor = _textColor(isDark);
     final subtitleColor = _subtitleColor(isDark);
     final borderColor = _borderColor(isDark);
 
-    return Card(
-      color: cardColor,
-      elevation: isDark ? 1 : 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: statusColor.withOpacity(isDark ? 0.75 : 0.55),
-          width: 1.5,
-        ),
-      ),
+    return SafeCard(
       margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            /// Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Icon(icon, color: statusColor),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          label,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                            color: statusColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  alert.fecha != null
-                      ? "${alert.fecha!.hour}:${alert.fecha!.minute.toString().padLeft(2, '0')}"
-                      : "--:--",
-                  style: GoogleFonts.poppins(
-                    color: subtitleColor,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            /// Título
-            Text(
-              alert.titulo,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: textColor,
-              ),
-            ),
-            const SizedBox(height: 4),
-
-            /// Descripción
-            Text(
-              alert.descripcion,
-              style: GoogleFonts.poppins(fontSize: 13, color: subtitleColor),
-            ),
-
-            // --- AQUÍ COLOCAS EL CÓDIGO DE LA IMAGEN ---
-            if (alert.rutaFoto != null &&
-                alert.rutaFoto!.isNotEmpty &&
-                alert.rutaFoto!.startsWith(
-                  'http',
-                )) // Valida que sea una URL de internet
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10.0),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    alert.rutaFoto!,
-                    //height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 150,
-                      color: isDark ? Colors.grey[800] : Colors.grey[200],
-                      child: const Icon(Icons.broken_image, color: Colors.grey),
-                    ),
-                  ),
-                ),
-              ),
-
-            /// Ubicación
-            if (alert.grid?.nombre != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? borderColor.withOpacity(0.35)
-                      : AppColors.backgroundLight,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: borderColor.withOpacity(0.7)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 16,
-                      color: statusColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        alert.grid!.nombre,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12.5,
-                          color: textColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+      borderColor: statusColor.withValues(alpha: isDark ? 0.35 : 0.25),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          /// Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              riskChip,
+              Text(
+                alert.fecha != null
+                    ? "${alert.fecha!.hour}:${alert.fecha!.minute.toString().padLeft(2, '0')}"
+                    : "--:--",
+                style: GoogleFonts.poppins(color: subtitleColor, fontSize: 12),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+
+          /// Título
+          Text(
+            alert.titulo,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+
+          /// Descripción
+          Text(
+            alert.descripcion,
+            style: GoogleFonts.poppins(fontSize: 13, color: subtitleColor),
+          ),
+
+          if (alert.rutaFoto != null &&
+              alert.rutaFoto!.isNotEmpty &&
+              alert.rutaFoto!.startsWith('http'))
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  alert.rutaFoto!,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 150,
+                    color: isDark ? Colors.grey[800] : Colors.grey[200],
+                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                  ),
+                ),
+              ),
+            ),
+
+          /// Ubicación
+          if (alert.grid?.nombre != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? borderColor.withValues(alpha: 0.35)
+                    : AppColors.backgroundLight,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: borderColor.withValues(alpha: 0.7)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 16,
+                    color: statusColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      alert.grid!.nombre,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12.5,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

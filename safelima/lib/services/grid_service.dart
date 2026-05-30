@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 import '../models/grid.dart';
 
 class GridService {
-  final String baseUrl = "http://192.168.0.7:8080/grids";
+  final String baseUrl =
+      "https://safelima-backend-1010928585686.us-central1.run.app/grids";
 
   Future<void> createGrid(Map<String, dynamic> body) async {
     final response = await http.post(

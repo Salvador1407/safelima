@@ -2,10 +2,7 @@ class StatusMetric {
   final String estado;
   final int total;
 
-  StatusMetric({
-    required this.estado,
-    required this.total,
-  });
+  StatusMetric({required this.estado, required this.total});
 
   factory StatusMetric.fromJson(Map<String, dynamic> json) {
     return StatusMetric(
@@ -19,10 +16,7 @@ class RiskMetric {
   final String nivelRiesgo;
   final int total;
 
-  RiskMetric({
-    required this.nivelRiesgo,
-    required this.total,
-  });
+  RiskMetric({required this.nivelRiesgo, required this.total});
 
   factory RiskMetric.fromJson(Map<String, dynamic> json) {
     return RiskMetric(
@@ -56,10 +50,7 @@ class IncidentTypeMetric {
   final String tipoIncidente;
   final int total;
 
-  IncidentTypeMetric({
-    required this.tipoIncidente,
-    required this.total,
-  });
+  IncidentTypeMetric({required this.tipoIncidente, required this.total});
 
   factory IncidentTypeMetric.fromJson(Map<String, dynamic> json) {
     return IncidentTypeMetric(
@@ -73,16 +64,10 @@ class DailyMetric {
   final String fecha;
   final int total;
 
-  DailyMetric({
-    required this.fecha,
-    required this.total,
-  });
+  DailyMetric({required this.fecha, required this.total});
 
   factory DailyMetric.fromJson(Map<String, dynamic> json) {
-    return DailyMetric(
-      fecha: json['fecha'] ?? '',
-      total: json['total'] ?? 0,
-    );
+    return DailyMetric(fecha: json['fecha'] ?? '', total: json['total'] ?? 0);
   }
 }
 

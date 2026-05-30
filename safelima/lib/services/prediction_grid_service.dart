@@ -6,7 +6,8 @@ import 'package:http/http.dart' as http;
 import '../models/prediction_grid.dart';
 
 class PredictionGridService {
-  final String baseUrl = "http://192.168.0.7:8080/predictions";
+  final String baseUrl =
+      "https://safelima-backend-1010928585686.us-central1.run.app/predictions";
 
   // CREATE (POST)
   Future<void> createPrediction(Map<String, dynamic> body) async {

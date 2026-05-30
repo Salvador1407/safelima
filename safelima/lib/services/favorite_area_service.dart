@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:safelima/models/favorite_area.dart';
 
 class FavoriteAreaService {
-  final String baseUrl = "http://192.168.0.7:8080/favorites";
+  final String baseUrl =
+      "https://safelima-backend-1010928585686.us-central1.run.app/favorites";
 
   Future<List<FavoriteArea>> getFavoritesByCitizen(int citizenId) async {
     final response = await http.get(Uri.parse("$baseUrl/citizen/$citizenId"));
@@ -31,10 +32,7 @@ class FavoriteAreaService {
     final response = await http.post(
       Uri.parse("$baseUrl/"),
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "citizen_id": citizenId,
-        "grid_id": gridId,
-      }),
+      body: jsonEncode({"citizen_id": citizenId, "grid_id": gridId}),
     );
 
     if (response.statusCode != 201) {

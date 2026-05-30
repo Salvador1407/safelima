@@ -6,6 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/screens/reset_password_screen.dart';
 import 'package:safelima/services/user_service.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_input_decoration.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -45,13 +49,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (!mounted) return;
 
       if (!connected) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("📵 No tienes conexión a internet"),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        SafeSnackBar.showError(context, "📵 No tienes conexión a internet");
         return;
       }
 
@@ -60,13 +58,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      SafeSnackBar.showSuccess(context, message);
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => ResetPasswordScreen(correo: correo)),
@@ -82,13 +74,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         errorMessage = "No se pudo enviar el código.";
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("⚠️ $errorMessage"),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      SafeSnackBar.showError(context, "⚠️ $errorMessage");
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -106,9 +92,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final bgColor = isDark
         ? AppColors.backgroundDark
         : AppColors.backgroundLight;
-    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
     final textColor = isDark ? AppColors.textDark : AppColors.white;
     final subtitleColor = isDark ? AppColors.subtitleDark : Colors.white70;
+    final inputTextColor = isDark ? AppColors.textDark : AppColors.textLight;
 
     return Scaffold(
       body: Container(
@@ -124,119 +110,84 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    Image.asset(
-                      "assets/images/SafeLima.png",
-                      height: 110,
-                      width: 110,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                children: [
+                  Image.asset(
+                    "assets/images/SafeLima.png",
+                    height: 110,
+                    width: 110,
+                  ),
+                  const SizedBox(height: 15),
+                  Text(
+                    "Recuperar contraseña",
+                    style: GoogleFonts.poppins(
+                      color: textColor,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 15),
-                    Text(
-                      "Recuperar contraseña",
-                      style: GoogleFonts.poppins(
-                        color: textColor,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Ingresa tu correo registrado y te enviaremos un código.",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      color: subtitleColor,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 35),
+                  SafeCard(
+                    borderRadius: 28,
+                    padding: const EdgeInsets.all(22),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _correoController,
+                            keyboardType: TextInputType.emailAddress,
+                            style: GoogleFonts.poppins(color: inputTextColor),
+                            decoration: safeInputDecoration(
+                              context,
+                              labelText: "Correo electrónico",
+                              prefixIcon: Icons.email_outlined,
+                            ),
+                            validator: (value) {
+                              final correo = value?.trim() ?? "";
+                              if (correo.isEmpty) return "Ingrese su correo";
+                              if (!correo.contains("@") ||
+                                  !correo.contains(".")) {
+                                return "Ingrese un correo válido";
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          SafeButton(
+                            label: "Enviar código",
+                            isLoading: _loading,
+                            fullWidth: true,
+                            onPressed: _sendCode,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "Ingresa tu correo registrado y te enviaremos un código.",
-                      textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Text(
+                      "← Volver al login",
                       style: GoogleFonts.poppins(
                         color: subtitleColor,
+                        fontWeight: FontWeight.w500,
                         fontSize: 15,
+                        decoration: TextDecoration.underline,
                       ),
                     ),
-                    const SizedBox(height: 35),
-                    TextFormField(
-                      controller: _correoController,
-                      keyboardType: TextInputType.emailAddress,
-                      style: GoogleFonts.poppins(
-                        color: isDark
-                            ? AppColors.textDark
-                            : AppColors.textLight,
-                      ),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: cardColor,
-                        hintText: "Correo electrónico",
-                        hintStyle: GoogleFonts.poppins(
-                          color: isDark
-                              ? AppColors.subtitleDark
-                              : AppColors.subtitleLight,
-                        ),
-                        prefixIcon: Icon(
-                          Icons.email_outlined,
-                          color: isDark ? AppColors.subtitleDark : Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      validator: (value) {
-                        final correo = value?.trim() ?? "";
-                        if (correo.isEmpty) return "Ingrese su correo";
-                        if (!correo.contains("@") || !correo.contains(".")) {
-                          return "Ingrese un correo válido";
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 25),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _loading ? null : _sendCode,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark
-                              ? AppColors.primaryDark
-                              : AppColors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: _loading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: AppColors.primary,
-                                ),
-                              )
-                            : Text(
-                                "Enviar código",
-                                style: GoogleFonts.poppins(
-                                  color: isDark
-                                      ? AppColors.white
-                                      : AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 17,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Text(
-                        "← Volver al login",
-                        style: GoogleFonts.poppins(
-                          color: subtitleColor,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 15,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

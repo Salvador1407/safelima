@@ -3,9 +3,8 @@ import 'package:http/http.dart' as http;
 import '../models/citizen.dart';
 
 class CitizenService {
-  
-  final String baseUrl = "http://192.168.0.7:8080/citizens";
-
+  final String baseUrl =
+      "https://safelima-backend-1010928585686.us-central1.run.app/citizens";
 
   Future<Citizen> createCitizen(Map<String, dynamic> body) async {
     final response = await http.post(

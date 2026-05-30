@@ -11,6 +11,9 @@ import 'package:safelima/services/user_alert_service.dart';
 import 'package:safelima/models/user_alert.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_dialog.dart';
+import 'package:safelima/widgets/safe_shimmer.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -53,57 +56,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<bool> _onWillPop() async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
-    final subtitleColor = isDark
-        ? AppColors.subtitleDark
-        : AppColors.subtitleLight;
-    final dialogBg = isDark ? AppColors.cardDark : AppColors.cardLight;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
-
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: dialogBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: borderColor),
-        ),
-        title: Text(
-          "¿Deseas salir de SafeLima?",
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            color: textColor,
-          ),
-        ),
-        content: Text(
-          "Tu sesión seguirá activa.",
-          style: GoogleFonts.poppins(color: subtitleColor),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              "Cancelar",
-              style: GoogleFonts.poppins(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              "Salir",
-              style: GoogleFonts.poppins(
-                color: AppColors.danger,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final shouldExit = await SafeDialog.showConfirmation(
+      context,
+      title: "¿Deseas salir de SafeLima?",
+      content: "Tu sesión seguirá activa.",
+      confirmLabel: "Salir",
+      cancelLabel: "Cancelar",
+      icon: Icons.exit_to_app_rounded,
+      iconColor: AppColors.danger,
     );
 
     if (shouldExit == true) {
@@ -117,10 +77,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
   }
 
-  Color _cardColor(bool isDark) {
-    return isDark ? AppColors.cardDark : AppColors.cardLight;
-  }
-
   Color _textColor(bool isDark) {
     return isDark ? AppColors.textDark : AppColors.textLight;
   }
@@ -129,34 +85,30 @@ class _HomeScreenState extends State<HomeScreen> {
     return isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
   }
 
-  Color _borderColor(bool isDark) {
-    return isDark ? AppColors.borderDark : AppColors.borderLight;
-  }
-
   Color _mainButtonColor(String type, bool isDark) {
     if (isDark) {
       switch (type) {
         case 'map':
-          return const Color(0xFF1F3B2D);
+          return const Color(0xFF1B3D2B);
         case 'alert':
-          return const Color(0xFF4A2C2A);
+          return const Color(0xFF4C2220);
         case 'report':
-          return const Color(0xFF223A4A);
+          return const Color(0xFF1E3547);
         case 'stats':
-          return const Color(0xFF3A2B4A);
+          return const Color(0xFF381F4C);
         default:
           return AppColors.cardDark;
       }
     } else {
       switch (type) {
         case 'map':
-          return const Color(0xFFD4EFDF);
+          return const Color(0xFFE8F8F5);
         case 'alert':
-          return const Color(0xFFFADBD8);
+          return const Color(0xFFFCE4D6);
         case 'report':
-          return const Color(0xFFD6EAF8);
+          return const Color(0xFFEBF5FB);
         case 'stats':
-          return const Color(0xFFE8DAEF);
+          return const Color(0xFFF5EEF8);
         default:
           return AppColors.cardLight;
       }
@@ -164,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Color _alertCardBackground(bool isDark) {
-    return isDark ? const Color(0xFF3A2323) : const Color(0xFFFFE5E5);
+    return isDark ? const Color(0xFF2C1C1C) : const Color(0xFFFFF2F2);
   }
 
   @override
@@ -173,14 +125,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final bgColor = _backgroundColor(isDark);
     final textColor = _textColor(isDark);
     final subtitleColor = _subtitleColor(isDark);
-    final borderColor = _borderColor(isDark);
 
-    return WillPopScope(
-      onWillPop: _onWillPop,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _onWillPop();
+      },
       child: Scaffold(
         backgroundColor: bgColor,
         appBar: AppBar(
           automaticallyImplyLeading: false,
+          elevation: 0,
           title: Text(
             "SafeLima",
             style: GoogleFonts.poppins(
@@ -188,11 +144,19 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppColors.white,
             ),
           ),
+          flexibleSpace: isDark
+              ? null
+              : Container(
+                  decoration: const BoxDecoration(
+                    gradient: AppColors.mainGradient,
+                  ),
+                ),
+          backgroundColor: isDark ? AppColors.backgroundDark : null,
           actions: [
             IconButton(
               onPressed: () {},
               icon: const Icon(
-                Icons.notifications_none,
+                Icons.notifications_none_rounded,
                 color: AppColors.white,
               ),
             ),
@@ -205,7 +169,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               },
-              icon: const Icon(Icons.person_outline, color: AppColors.white),
+              icon: const Icon(
+                Icons.person_outline_rounded,
+                color: AppColors.white,
+              ),
             ),
             IconButton(
               onPressed: () {
@@ -216,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               },
-              icon: const Icon(Icons.settings, color: AppColors.white),
+              icon: const Icon(Icons.settings_rounded, color: AppColors.white),
             ),
           ],
         ),
@@ -229,25 +196,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   "¡Bienvenido!",
                   style: GoogleFonts.poppins(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
                     color: textColor,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
                   "Mantente seguro en Lima",
                   style: GoogleFonts.poppins(
-                    fontSize: 16,
+                    fontSize: 15,
                     color: subtitleColor,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 25),
+                const SizedBox(height: 24),
 
                 /// 🔹 Botones principales
                 GridView.count(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
@@ -255,8 +224,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: "Ver Mapa",
                       color: _mainButtonColor('map', isDark),
                       icon: Icons.map_outlined,
-                      textColor: textColor,
-                      borderColor: borderColor,
+                      textColor: isDark
+                          ? AppColors.success
+                          : const Color(0xFF117A65),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -268,8 +238,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: "Alertas",
                       color: _mainButtonColor('alert', isDark),
                       icon: Icons.warning_amber_outlined,
-                      textColor: textColor,
-                      borderColor: borderColor,
+                      textColor: isDark
+                          ? AppColors.warning
+                          : const Color(0xFFD35400),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -282,9 +253,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildMainButton(
                       title: "Reportar",
                       color: _mainButtonColor('report', isDark),
-                      icon: Icons.add_circle_outline,
-                      textColor: textColor,
-                      borderColor: borderColor,
+                      icon: Icons.add_circle_outline_rounded,
+                      textColor: isDark
+                          ? AppColors.secondaryDark
+                          : AppColors.primary,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -298,8 +270,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: "Estadísticas",
                       color: _mainButtonColor('stats', isDark),
                       icon: Icons.bar_chart_outlined,
-                      textColor: textColor,
-                      borderColor: borderColor,
+                      textColor: isDark
+                          ? const Color(0xFFBB8FCE)
+                          : const Color(0xFF7D3C98),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -311,17 +284,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 25),
+                const SizedBox(height: 28),
 
-                /// 🔹 Últimas alertas registrada
+                /// 🔹 Últimas alertas registradas
                 FutureBuilder<List<UserAlert>>(
                   future: getRecentAlerts(limit: 2),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                        ),
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildTitlePlaceholder(isDark),
+                          const SizedBox(height: 12),
+                          const SafeShimmer.rectangular(
+                            width: double.infinity,
+                            height: 75,
+                          ),
+                          const SizedBox(height: 10),
+                          const SafeShimmer.rectangular(
+                            width: double.infinity,
+                            height: 75,
+                          ),
+                        ],
                       );
                     } else if (snapshot.hasError) {
                       return Text(
@@ -346,12 +330,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         Text(
                           "Alertas Recientes",
                           style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
                             color: textColor,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         ...alerts.map((alert) {
                           final dateStr = alert.fecha != null
                               ? DateFormat(
@@ -367,7 +351,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             iconColor: AppColors.danger,
                             textColor: textColor,
                             subtitleColor: subtitleColor,
-                            borderColor: AppColors.danger.withOpacity(0.35),
+                            borderColor: AppColors.danger.withValues(
+                              alpha: isDark ? 0.40 : 0.25,
+                            ),
                           );
                         }),
                       ],
@@ -382,45 +368,35 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildTitlePlaceholder(bool isDark) {
+    return const SafeShimmer.rectangular(width: 160, height: 22);
+  }
+
   Widget _buildMainButton({
     required String title,
     required Color color,
     required IconData icon,
     required Color textColor,
-    required Color borderColor,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
+    return SafeCard(
+      backgroundColor: color,
+      padding: EdgeInsets.zero,
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor.withOpacity(0.5)),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.black.withOpacity(0.05),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 36, color: textColor),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: textColor,
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 36, color: textColor),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: textColor,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -434,18 +410,27 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color subtitleColor,
     required Color borderColor,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-      ),
+    return SafeCard(
+      backgroundColor: color,
+      borderColor: borderColor,
+      borderRadius: 16,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: iconColor, size: 28),
-          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.warning_amber_rounded,
+              color: iconColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -454,15 +439,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   title,
                   style: GoogleFonts.poppins(
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     color: textColor,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   subtitle,
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
+                    fontSize: 12.5,
                     color: subtitleColor,
                   ),
                 ),

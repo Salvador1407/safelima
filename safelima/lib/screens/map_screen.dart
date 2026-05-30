@@ -1605,8 +1605,10 @@ class _MapScreenState extends State<MapScreen> {
         child: const Icon(Icons.my_location, color: AppColors.white),
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+          ? Center(
+              child: CircularProgressIndicator(
+                color: isDark ? AppColors.secondaryDark : AppColors.primary,
+              ),
             )
           : Stack(
               children: [
@@ -1893,9 +1895,11 @@ class _MapScreenState extends State<MapScreen> {
                           const SizedBox(height: 16),
 
                           if (_isCalculatingRoute) ...[
-                            const Center(
+                            Center(
                               child: CircularProgressIndicator(
-                                color: AppColors.primary,
+                                color: isDark
+                                    ? AppColors.secondaryDark
+                                    : AppColors.primary,
                               ),
                             ),
                             const SizedBox(height: 10),

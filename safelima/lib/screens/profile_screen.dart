@@ -11,6 +11,11 @@ import 'package:safelima/theme/theme_notifier.dart';
 import 'package:safelima/models/citizen.dart';
 import 'package:safelima/services/citizen_service.dart';
 import 'package:safelima/core/app_data.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_empty_state.dart';
+import 'package:safelima/widgets/safe_input_decoration.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -34,6 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool notificationsEnabled = false;
   String _avatar = "😀";
   String _profileLoadMessage = "No se encontraron datos.";
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -93,16 +99,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       if (!_formKey.currentState!.validate()) return;
 
+      setState(() => _isSaving = true);
       final connected = await _hasInternet();
-      if (!mounted) return;
+      if (!mounted) {
+        setState(() => _isSaving = false);
+        return;
+      }
 
       if (!connected) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(_noInternetMessage),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        setState(() => _isSaving = false);
+        SafeSnackBar.showError(context, _noInternetMessage);
         return;
       }
 
@@ -114,21 +120,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       await _citizenService.updateCitizen(id, updatedData);
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("✅ Perfil actualizado correctamente"),
-          backgroundColor: AppColors.secundary,
-        ),
-      );
+      if (!mounted) {
+        setState(() => _isSaving = false);
+        return;
+      }
+      setState(() => _isSaving = false);
+      SafeSnackBar.showSuccess(context, "Perfil actualizado correctamente");
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("No se pudo actualizar el perfil"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      if (!mounted) {
+        setState(() => _isSaving = false);
+        return;
+      }
+      setState(() => _isSaving = false);
+      SafeSnackBar.showError(context, "No se pudo actualizar el perfil");
     }
   }
 
@@ -140,24 +144,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showAvatarSelector() {
     final emojis = ["😀", "😎", "🤗", "🦊", "🐼", "🥰", "😴", "🥳"];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Selecciona tu avatar"),
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: borderColor, width: 0.9),
+        ),
+        title: Text(
+          "Selecciona tu avatar",
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            color: textColor,
+          ),
+        ),
         content: Wrap(
-          spacing: 10,
-          runSpacing: 10,
+          spacing: 12,
+          runSpacing: 12,
+          alignment: WrapAlignment.center,
           children: emojis.map((e) {
             return GestureDetector(
               onTap: () async {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.setString('selected_avatar', e);
+                if (!mounted) return;
                 setState(() => _avatar = e);
                 Navigator.pop(context);
               },
-              child: CircleAvatar(
-                radius: 25,
-                child: Text(e, style: const TextStyle(fontSize: 26)),
+              child: Container(
+                width: 54,
+                height: 54,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.backgroundDark
+                      : AppColors.backgroundLight,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: borderColor, width: 0.9),
+                ),
+                child: Text(e, style: const TextStyle(fontSize: 28)),
               ),
             );
           }).toList(),
@@ -168,54 +200,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = GoogleFonts.poppinsTextTheme(theme.textTheme);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final primaryColor = isDark ? AppColors.secondaryDark : AppColors.primary;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Perfil"),
         centerTitle: true,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secundary],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-        ),
+        elevation: 0,
+        flexibleSpace: isDark
+            ? null
+            : Container(
+                decoration: const BoxDecoration(
+                  gradient: AppColors.mainGradient,
+                ),
+              ),
+        backgroundColor: isDark ? AppColors.backgroundDark : null,
       ),
       body: FutureBuilder<Citizen?>(
         future: _futureCitizen,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+              child: CircularProgressIndicator(color: primaryColor),
+            );
           }
 
           if (!snapshot.hasData) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.person_off_outlined,
-                      size: 64,
-                      color: AppColors.primaryDark,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _profileLoadMessage,
-                      textAlign: TextAlign.center,
-                      style: textTheme.titleMedium?.copyWith(
-                        color: AppColors.primaryDark,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            return SafeEmptyState(
+              icon: Icons.person_off_outlined,
+              title: _profileLoadMessage,
             );
           }
 
@@ -226,53 +241,87 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
               children: [
-                // 🧍 Avatar
-                Center(
+                // 👤 Avatar Card
+                SafeCard(
                   child: Column(
                     children: [
-                      GestureDetector(
-                        onTap: _showAvatarSelector,
-                        child: CircleAvatar(
-                          radius: 45,
-                          backgroundColor: AppColors.secundary.withOpacity(0.2),
-                          child: Text(
-                            _avatar,
-                            style: const TextStyle(fontSize: 40),
+                      Stack(
+                        children: [
+                          Container(
+                            width: 104,
+                            height: 104,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.backgroundDark
+                                  : AppColors.backgroundLight,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isDark
+                                    ? AppColors.borderDark
+                                    : AppColors.borderLight,
+                                width: 2,
+                              ),
+                            ),
+                            child: Text(
+                              _avatar,
+                              style: const TextStyle(fontSize: 54),
+                            ),
                           ),
-                        ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: _showAvatarSelector,
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: primaryColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: AppColors.white,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.edit_rounded,
+                                  color: AppColors.white,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 14),
                       Text(
-                        citizen.fullName ?? "Usuario SafeLima",
-                        style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryDark,
+                        citizen.user?.nameuser ?? "@ciudadano",
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: textColor,
                         ),
                       ),
-                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
 
-                // 👤 Nombre completo
+                const SizedBox(height: 20),
+
+                // ✏️ Nombre completo
                 TextFormField(
                   controller: _nameController,
-                  decoration: InputDecoration(
+                  style: GoogleFonts.poppins(color: textColor),
+                  decoration: safeInputDecoration(
+                    context,
                     labelText: "Nombre completo",
-                    prefixIcon: const Icon(Icons.person_outline),
-                    filled: true,
-                    fillColor: theme.cardColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      borderSide: const BorderSide(color: AppColors.primary),
-                    ),
+                    prefixIcon: Icons.person_outline_rounded,
                   ),
                   validator: (value) {
-                    final name = value?.trim() ?? "";
-                    if (name.length < 2 || name.length > 50) {
-                      return "El nombre debe tener entre 2 y 50 caracteres";
+                    if (value == null || value.trim().isEmpty) {
+                      return "Ingrese su nombre completo";
                     }
                     return null;
                   },
@@ -284,15 +333,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 TextFormField(
                   controller: _correoController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
+                  style: GoogleFonts.poppins(color: textColor),
+                  decoration: safeInputDecoration(
+                    context,
                     labelText: "Correo electrónico",
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    filled: true,
-                    fillColor: theme.cardColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      borderSide: const BorderSide(color: AppColors.primary),
-                    ),
+                    prefixIcon: Icons.email_outlined,
                   ),
                   validator: (value) {
                     final email = value?.trim() ?? "";
@@ -307,55 +352,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 20),
 
                 // 🔔 Notificaciones
-                SwitchListTile(
-                  title: const Text("Recibir notificaciones"),
-                  secondary: const Icon(Icons.notifications_active_outlined),
-                  value: notificationsEnabled,
-                  activeThumbColor: AppColors.secundary,
-                  onChanged: _toggleNotifications,
+                SafeCard(
+                  padding: EdgeInsets.zero,
+                  child: SwitchListTile(
+                    title: Text(
+                      "Recibir notificaciones",
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    secondary: const Icon(Icons.notifications_active_outlined),
+                    value: notificationsEnabled,
+                    activeThumbColor: isDark
+                        ? AppColors.secondaryDark
+                        : AppColors.primary,
+                    activeTrackColor:
+                        (isDark ? AppColors.secondaryDark : AppColors.primary)
+                            .withValues(alpha: 0.3),
+                    onChanged: _toggleNotifications,
+                  ),
                 ),
 
+                const SizedBox(height: 12),
+
                 // 🌙 Tema oscuro
-                SwitchListTile(
-                  title: const Text("Tema oscuro"),
-                  secondary: const Icon(Icons.dark_mode_outlined),
-                  value: context.watch<ThemeNotifier>().isDarkMode,
-                  activeThumbColor: AppColors.secundary,
-                  onChanged: (val) {
-                    context.read<ThemeNotifier>().toggleTheme(val);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          val
-                              ? "🌙 Tema oscuro activado"
-                              : "☀️ Tema claro activado",
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        backgroundColor: val
-                            ? Colors.blueGrey
-                            : AppColors.primary,
+                SafeCard(
+                  padding: EdgeInsets.zero,
+                  child: SwitchListTile(
+                    title: Text(
+                      "Tema oscuro",
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
                       ),
-                    );
-                  },
+                    ),
+                    secondary: const Icon(Icons.dark_mode_outlined),
+                    value: context.watch<ThemeNotifier>().isDarkMode,
+                    activeThumbColor: isDark
+                        ? AppColors.secondaryDark
+                        : AppColors.primary,
+                    activeTrackColor:
+                        (isDark ? AppColors.secondaryDark : AppColors.primary)
+                            .withValues(alpha: 0.3),
+                    onChanged: (val) {
+                      context.read<ThemeNotifier>().toggleTheme(val);
+                      SafeSnackBar.showInfo(
+                        context,
+                        val ? "Tema oscuro activado" : "Tema claro activado",
+                      );
+                    },
+                  ),
                 ),
 
                 const SizedBox(height: 25),
 
                 // 💾 Guardar
-                ElevatedButton.icon(
-                  onPressed: _saveCitizenChanges,
-                  icon: const Icon(Icons.save, color: Colors.white),
-                  label: const Text(
-                    "Guardar cambios",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secundary,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                  ),
+                SafeButton.secondary(
+                  onPressed: _isSaving ? null : _saveCitizenChanges,
+                  isLoading: _isSaving,
+                  icon: Icons.save_rounded,
+                  label: "Guardar cambios",
+                  fullWidth: true,
                 ),
               ],
             ),
