@@ -47,6 +47,7 @@ class _MapScreenState extends State<MapScreen> {
 
   List<PredictionGrid> _allZones = [];
   List<PredictionGrid> _filteredZones = [];
+  String? _selectedTramoHorario;
 
   bool _loading = true;
   bool _showSuggestions = false;
@@ -1189,34 +1190,143 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  void _generateHeatCircles(List<PredictionGrid> predictions) {
-    Set<Circle> circles = {};
-    Set<Marker> markers = {};
+  List<PredictionGrid> _getFilteredPredictions(
+    List<PredictionGrid> predictions,
+  ) {
+    final Map<int, PredictionGrid> gridMostRecentPrediction = {};
 
-    for (var p in predictions) {
+    for (final p in predictions) {
+      final gridId = p.grid?.id ?? p.gridId;
+      if (gridId <= 0) continue;
+
+      if (_selectedTramoHorario != null && p.tramoHorario != null) {
+        if (p.tramoHorario != _selectedTramoHorario) {
+          continue;
+        }
+      }
+
+      final existing = gridMostRecentPrediction[gridId];
+      if (existing == null) {
+        gridMostRecentPrediction[gridId] = p;
+      } else {
+        final dateA = p.fechaPrediccion;
+        final dateB = existing.fechaPrediccion;
+        if (dateA != null && dateB != null) {
+          if (dateA.isAfter(dateB)) {
+            gridMostRecentPrediction[gridId] = p;
+          }
+        } else if (dateA != null) {
+          gridMostRecentPrediction[gridId] = p;
+        }
+      }
+    }
+
+    return gridMostRecentPrediction.values.toList();
+  }
+
+  void _generateHeatCircles(List<PredictionGrid> predictions) {
+    final filteredPredictions = _getFilteredPredictions(predictions);
+    Set<Circle> circles = {};
+
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final double opacityMultiplier = isDark ? 0.65 : 1.0;
+
+    for (var p in filteredPredictions) {
       if (p.grid?.centroLat == null || p.grid?.centroLon == null) continue;
 
       final LatLng position = LatLng(p.grid!.centroLat!, p.grid!.centroLon!);
       final color = _getColor(p.nivelRiesgo);
       final isSelected = _isSelectedZone(p);
+      final nivel = p.nivelRiesgo.toLowerCase();
+
+      int zIndexVal = 1;
+      if (nivel == 'alto') {
+        zIndexVal = 3;
+      } else if (nivel == 'medio') {
+        zIndexVal = 2;
+      }
+
+      if (isSelected) {
+        zIndexVal += 10;
+      }
+
+      Color coreColor = color;
+      Color midColor = color;
+      Color outColor = color;
+
+      double coreRadius = 90;
+      double midRadius = 135;
+      double outRadius = 190;
+
+      if (nivel == 'alto') {
+        coreColor = AppColors.danger;
+        midColor = AppColors.warning;
+        outColor = AppColors.accent;
+        coreRadius = 130;
+        midRadius = 210;
+        outRadius = 280;
+      } else if (nivel == 'medio') {
+        coreColor = AppColors.warning;
+        midColor = AppColors.warning;
+        outColor = AppColors.accent;
+        coreRadius = 105;
+        midRadius = 165;
+        outRadius = 230;
+      } else {
+        coreColor = AppColors.success;
+        midColor = AppColors.success;
+        outColor = AppColors.success;
+        coreRadius = 90;
+        midRadius = 135;
+        outRadius = 190;
+      }
+
+      final double coreOpacity = isSelected ? 0.45 : 0.38;
+      final double midOpacity = isSelected ? 0.32 : 0.24;
+      final double outOpacity = isSelected ? 0.22 : 0.15;
+
+      final double currentCoreOpacity = coreOpacity * opacityMultiplier;
+      final double currentMidOpacity = midOpacity * opacityMultiplier;
+      final double currentOutOpacity = outOpacity * opacityMultiplier;
 
       circles.add(
         Circle(
-          circleId: CircleId(p.grid?.nombre ?? "Zona"),
+          circleId: CircleId("circle_core_${p.grid?.id ?? p.gridId}"),
           center: position,
-          radius: _getRadius(p.nivelRiesgo),
-          fillColor: color.withValues(alpha: isSelected ? 0.6 : 0.35),
+          radius: coreRadius,
+          fillColor: coreColor.withValues(alpha: currentCoreOpacity),
           strokeColor: isSelected ? color : Colors.transparent,
-          strokeWidth: isSelected ? 3 : 0,
+          strokeWidth: isSelected ? 2 : 0,
+          zIndex: zIndexVal,
+          consumeTapEvents: true,
+          onTap: () => _selectZone(p),
         ),
       );
 
-      markers.add(
-        Marker(
-          markerId: MarkerId(p.grid?.nombre ?? "Zona"),
-          position: position,
-          icon: BitmapDescriptor.defaultMarkerWithHue(_getHue(p.nivelRiesgo)),
-          infoWindow: InfoWindow(title: p.grid?.nombre ?? "Zona sin nombre"),
+      circles.add(
+        Circle(
+          circleId: CircleId("circle_mid_${p.grid?.id ?? p.gridId}"),
+          center: position,
+          radius: midRadius,
+          fillColor: midColor.withValues(alpha: currentMidOpacity),
+          strokeColor: Colors.transparent,
+          strokeWidth: 0,
+          zIndex: zIndexVal - 1,
+          consumeTapEvents: true,
+          onTap: () => _selectZone(p),
+        ),
+      );
+
+      circles.add(
+        Circle(
+          circleId: CircleId("circle_out_${p.grid?.id ?? p.gridId}"),
+          center: position,
+          radius: outRadius,
+          fillColor: outColor.withValues(alpha: currentOutOpacity),
+          strokeColor: Colors.transparent,
+          strokeWidth: 0,
+          zIndex: zIndexVal - 2,
+          consumeTapEvents: true,
           onTap: () => _selectZone(p),
         ),
       );
@@ -1224,7 +1334,7 @@ class _MapScreenState extends State<MapScreen> {
 
     setState(() {
       _heatCircles = circles;
-      _zoneMarkers = markers;
+      _zoneMarkers = {};
     });
   }
 
@@ -1251,7 +1361,13 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  double _getRadius(String nivel) => 100;
+  Color _subtitleColor(bool isDark) {
+    return isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
+  }
+
+  Color _borderColor(bool isDark) {
+    return isDark ? AppColors.borderDark : AppColors.borderLight;
+  }
 
   double _getHue(String nivel) {
     switch (nivel.toLowerCase()) {
@@ -1420,7 +1536,8 @@ class _MapScreenState extends State<MapScreen> {
     final normalizedQuery = _normalizeSearchText(query);
     if (normalizedQuery.isEmpty) return [];
 
-    final results = _allZones.where((zone) {
+    final filtered = _getFilteredPredictions(_allZones);
+    final results = filtered.where((zone) {
       if (!_hasValidZoneCoordinates(zone)) return false;
       final zoneName = _normalizeSearchText(zone.grid?.nombre ?? '');
       return zoneName.contains(normalizedQuery);
@@ -1475,7 +1592,8 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
 
-    final exactMatches = _allZones
+    final filtered = _getFilteredPredictions(_allZones);
+    final exactMatches = filtered
         .where(
           (zone) =>
               _hasValidZoneCoordinates(zone) &&
@@ -1523,6 +1641,585 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  Widget _mapActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback? onPressed,
+    required bool isDark,
+    bool filled = false,
+    Color? foregroundColor,
+  }) {
+    final disabled = onPressed == null;
+
+    final bgColor = disabled
+        ? _borderColor(isDark).withValues(alpha: isDark ? 0.22 : 0.45)
+        : filled
+        ? color
+        : color.withValues(alpha: isDark ? 0.16 : 0.10);
+
+    final fgColor = disabled
+        ? _subtitleColor(isDark)
+        : foregroundColor ?? (filled ? AppColors.white : color);
+
+    return SizedBox(
+      height: 48,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(17),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(
+                color: disabled
+                    ? _borderColor(isDark).withValues(alpha: 0.55)
+                    : color.withValues(alpha: filled ? 0.0 : 0.24),
+              ),
+              boxShadow: filled && !disabled
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: isDark ? 0.24 : 0.18),
+                        blurRadius: 14,
+                        offset: const Offset(0, 7),
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 20, color: fgColor),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13.2,
+                      fontWeight: FontWeight.w800,
+                      color: fgColor,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _appBarActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: AppColors.white.withValues(alpha: 0.14),
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed,
+            child: SizedBox(
+              width: 38,
+              height: 38,
+              child: Icon(icon, color: AppColors.white, size: 20),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _routeInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color iconColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required bool isDark,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      decoration: BoxDecoration(
+        color: _borderColor(isDark).withValues(alpha: isDark ? 0.24 : 0.36),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: _borderColor(isDark).withValues(alpha: isDark ? 0.34 : 0.55),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 17, color: iconColor),
+          const SizedBox(width: 8),
+          Text(
+            "$label:",
+            style: GoogleFonts.poppins(
+              fontSize: 12.4,
+              fontWeight: FontWeight.w800,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: 12.4,
+                fontWeight: FontWeight.w600,
+                color: subtitleColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSafeRouteResult({
+    required bool isDark,
+    required Color textColor,
+    required Color subtitleColor,
+  }) {
+    final risk = _safeRouteResult!.bestRoute.riskScore;
+
+    Color riskColor;
+    if (risk > 20) {
+      riskColor = AppColors.danger;
+    } else if (risk > 10) {
+      riskColor = AppColors.warning;
+    } else {
+      riskColor = isDark ? AppColors.secondaryDark : AppColors.primary;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Divider(
+          color: _borderColor(isDark).withValues(alpha: isDark ? 0.45 : 0.70),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: riskColor.withValues(alpha: isDark ? 0.18 : 0.12),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(Icons.alt_route_rounded, color: riskColor, size: 22),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text(
+                "Ruta sugerida",
+                style: GoogleFonts.poppins(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                  color: textColor,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ),
+            _riskChip(
+              risk > 20
+                  ? "alto"
+                  : risk > 10
+                  ? "medio"
+                  : "bajo",
+            ),
+          ],
+        ),
+        const SizedBox(height: 13),
+        _routeInfoRow(
+          icon: Icons.straighten_rounded,
+          label: "Distancia",
+          value:
+              "${(_safeRouteResult!.bestRoute.distanceMeters / 1000).toStringAsFixed(2)} km",
+          iconColor: AppColors.info,
+          textColor: textColor,
+          subtitleColor: subtitleColor,
+          isDark: isDark,
+        ),
+        _routeInfoRow(
+          icon: Icons.access_time_rounded,
+          label: "Tiempo",
+          value:
+              "${(_safeRouteResult!.bestRoute.durationSeconds / 60).toStringAsFixed(0)} min",
+          iconColor: AppColors.warning,
+          textColor: textColor,
+          subtitleColor: subtitleColor,
+          isDark: isDark,
+        ),
+        _routeInfoRow(
+          icon: Icons.warning_amber_rounded,
+          label: "Riesgo",
+          value: _safeRouteResult!.bestRoute.riskScore.toStringAsFixed(1),
+          iconColor: riskColor,
+          textColor: textColor,
+          subtitleColor: subtitleColor,
+          isDark: isDark,
+        ),
+        _routeInfoRow(
+          icon: Icons.report_problem_rounded,
+          label: "Zonas peligrosas",
+          value: "${_safeRouteResult!.bestRoute.dangerZonesCrossed}",
+          iconColor: AppColors.danger,
+          textColor: textColor,
+          subtitleColor: subtitleColor,
+          isDark: isDark,
+        ),
+        _routeInfoRow(
+          icon: Icons.error_outline_rounded,
+          label: "Zonas medias",
+          value: "${_safeRouteResult!.bestRoute.mediumZonesCrossed}",
+          iconColor: AppColors.warning,
+          textColor: textColor,
+          subtitleColor: subtitleColor,
+          isDark: isDark,
+        ),
+        _routeInfoRow(
+          icon: Icons.check_circle_outline_rounded,
+          label: "Zonas seguras",
+          value: "${_safeRouteResult!.bestRoute.lowZonesCrossed}",
+          iconColor: AppColors.success,
+          textColor: textColor,
+          subtitleColor: subtitleColor,
+          isDark: isDark,
+        ),
+        const SizedBox(height: 8),
+        _mapActionButton(
+          icon: Icons.close_rounded,
+          label: "Cerrar ruta",
+          color: AppColors.danger,
+          onPressed: _clearSafeRoute,
+          isDark: isDark,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildZoneActions({required bool isDark}) {
+    final selectedZone = _selectedZone!;
+    final accentColor = isDark ? AppColors.secondaryDark : AppColors.primary;
+    final isFavorite =
+        selectedZone.grid?.id != null &&
+        _favoriteGridIds.contains(selectedZone.grid!.id);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useTwoColumns = constraints.maxWidth >= 330;
+        final buttonWidth = useTwoColumns
+            ? (constraints.maxWidth - 10) / 2
+            : constraints.maxWidth;
+
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            SizedBox(
+              width: buttonWidth,
+              child: _mapActionButton(
+                icon: Icons.route_rounded,
+                label: "Ruta Segura",
+                color: accentColor,
+                filled: true,
+                onPressed: () => _requestSafeRoute(
+                  LatLng(
+                    selectedZone.grid!.centroLat!,
+                    selectedZone.grid!.centroLon!,
+                  ),
+                ),
+                isDark: isDark,
+              ),
+            ),
+            SizedBox(
+              width: buttonWidth,
+              child: _mapActionButton(
+                icon: Icons.reviews_rounded,
+                label: "Ver Reseñas",
+                color: AppColors.accent,
+                foregroundColor: isDark ? AppColors.black : AppColors.black,
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ZoneReviewsScreen(
+                        gridId: selectedZone.grid!.id,
+                        zoneName: selectedZone.grid!.nombre,
+                      ),
+                    ),
+                  );
+                },
+                isDark: isDark,
+              ),
+            ),
+            SizedBox(
+              width: buttonWidth,
+              child: _mapActionButton(
+                icon: Icons.local_police_rounded,
+                label: "Comisarías",
+                color: AppColors.info,
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => NearbyPoliceStationsScreen(
+                        lat: selectedZone.grid!.centroLat!,
+                        lon: selectedZone.grid!.centroLon!,
+                      ),
+                    ),
+                  );
+                },
+                isDark: isDark,
+              ),
+            ),
+            SizedBox(
+              width: buttonWidth,
+              child: _mapActionButton(
+                icon: isFavorite
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                label: isFavorite ? "Quitar favorito" : "Favorito",
+                color: AppColors.danger,
+                onPressed: _favoritesLoading ? null : _toggleFavoriteZone,
+                isDark: isDark,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSelectedZoneCard({
+    required bool isDark,
+    required Color cardColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color borderColor,
+  }) {
+    final selectedZone = _selectedZone!;
+    final riskColor = _getColor(selectedZone.nivelRiesgo);
+    final accentColor = isDark ? AppColors.secondaryDark : AppColors.primary;
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOut,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.58,
+        ),
+        margin: const EdgeInsets.fromLTRB(14, 14, 86, 14),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(
+            color: riskColor.withValues(alpha: isDark ? 0.34 : 0.22),
+          ),
+          boxShadow: _softShadow(isDark),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(26),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -52,
+                right: -46,
+                child: Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: riskColor.withValues(alpha: isDark ? 0.12 : 0.08),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: -46,
+                left: -42,
+                child: Container(
+                  width: 112,
+                  height: 112,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: accentColor.withValues(alpha: isDark ? 0.08 : 0.05),
+                  ),
+                ),
+              ),
+              SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.all(17),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: riskColor.withValues(
+                              alpha: isDark ? 0.18 : 0.12,
+                            ),
+                            borderRadius: BorderRadius.circular(17),
+                            border: Border.all(
+                              color: riskColor.withValues(alpha: 0.24),
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.location_on_rounded,
+                            color: riskColor,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            selectedZone.grid?.nombre ?? "Zona sin nombre",
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              height: 1.18,
+                              fontWeight: FontWeight.w800,
+                              color: textColor,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _riskChip(selectedZone.nivelRiesgo),
+                        const SizedBox(width: 4),
+                        InkWell(
+                          onTap: _closeZoneCard,
+                          borderRadius: BorderRadius.circular(999),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: borderColor.withValues(
+                                alpha: isDark ? 0.28 : 0.55,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.close_rounded,
+                              color: subtitleColor,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(13),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.backgroundDark.withValues(alpha: 0.40)
+                            : AppColors.backgroundLight,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: borderColor.withValues(
+                            alpha: isDark ? 0.45 : 0.75,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          _zoneMetricRow(
+                            icon: Icons.security_rounded,
+                            label: "Nivel",
+                            value: _formatRiskLevel(selectedZone.nivelRiesgo),
+                            iconColor: riskColor,
+                            textColor: textColor,
+                            subtitleColor: subtitleColor,
+                          ),
+                          _zoneMetricRow(
+                            icon: Icons.speed_rounded,
+                            label: "Riesgo",
+                            value: "${selectedZone.scoreRiesgo}/3",
+                            iconColor: AppColors.warning,
+                            textColor: textColor,
+                            subtitleColor: subtitleColor,
+                          ),
+                          _zoneMetricRow(
+                            icon: Icons.calendar_today_outlined,
+                            label: "Última predicción",
+                            value:
+                                selectedZone.fechaPrediccion
+                                    ?.toLocal()
+                                    .toString()
+                                    .split(' ')
+                                    .first ??
+                                "Sin fecha",
+                            iconColor: AppColors.info,
+                            textColor: textColor,
+                            subtitleColor: subtitleColor,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    if (_isCalculatingRoute) ...[
+                      Center(
+                        child: CircularProgressIndicator(
+                          color: isDark
+                              ? AppColors.secondaryDark
+                              : AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Center(
+                        child: Text(
+                          "Calculando la ruta más segura...",
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: subtitleColor,
+                          ),
+                        ),
+                      ),
+                    ] else if (_safeRouteResult == null) ...[
+                      _buildZoneActions(isDark: isDark),
+                    ] else ...[
+                      _buildSafeRouteResult(
+                        isDark: isDark,
+                        textColor: textColor,
+                        subtitleColor: subtitleColor,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1554,18 +2251,19 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.local_police, color: Colors.white),
+          _appBarActionButton(
+            icon: Icons.local_police_rounded,
             tooltip: "Probar alerta por cercanía a comisaría",
             onPressed: _testPoliceStationNotificationNearCurrentLocation,
           ),
-          IconButton(
-            icon: const Icon(Icons.add_alert, color: Colors.white),
+          _appBarActionButton(
+            icon: Icons.add_alert_rounded,
             tooltip: "Inyectar zona peligrosa cerca",
             onPressed: _injectTestDangerZoneNearCurrentLocation,
           ),
-          IconButton(
-            icon: const Icon(Icons.favorite, color: Colors.white),
+          _appBarActionButton(
+            icon: Icons.favorite_rounded,
+            tooltip: "Zonas favoritas",
             onPressed: () async {
               final connected = await _hasInternet();
               if (!context.mounted) return;
@@ -1584,9 +2282,11 @@ class _MapScreenState extends State<MapScreen> {
                 context,
                 MaterialPageRoute(builder: (_) => const FavoriteZonesScreen()),
               );
+
               if (!context.mounted) return;
 
               await _loadFavorites();
+
               if (!context.mounted) return;
 
               if (selectedFavorite != null) {
@@ -1594,6 +2294,7 @@ class _MapScreenState extends State<MapScreen> {
               }
             },
           ),
+          const SizedBox(width: 4),
         ],
       ),
 
@@ -1804,439 +2505,12 @@ class _MapScreenState extends State<MapScreen> {
                   ),
 
                 if (_selectedZone != null)
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      padding: const EdgeInsets.all(18),
-                      margin: const EdgeInsets.fromLTRB(14, 14, 86, 14),
-                      decoration: BoxDecoration(
-                        color: cardColor,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: borderColor.withValues(alpha: 0.85),
-                        ),
-                        boxShadow: _softShadow(isDark),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _selectedZone!.grid?.nombre ??
-                                      "Zona sin nombre",
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 18.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: textColor,
-                                  ),
-                                ),
-                              ),
-
-                              _riskChip(_selectedZone!.nivelRiesgo),
-
-                              IconButton(
-                                onPressed: _closeZoneCard,
-                                icon: Icon(Icons.close, color: subtitleColor),
-                                tooltip: "Cerrar",
-                                splashRadius: 20,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: borderColor.withValues(alpha: 0.24),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Column(
-                              children: [
-                                _zoneMetricRow(
-                                  icon: Icons.security,
-                                  label: "Nivel",
-                                  value: _formatRiskLevel(
-                                    _selectedZone!.nivelRiesgo,
-                                  ),
-                                  iconColor: _getColor(
-                                    _selectedZone!.nivelRiesgo,
-                                  ),
-                                  textColor: textColor,
-                                  subtitleColor: subtitleColor,
-                                ),
-                                _zoneMetricRow(
-                                  icon: Icons.speed,
-                                  label: "Riesgo",
-                                  value: "${_selectedZone!.scoreRiesgo}/3",
-                                  iconColor: AppColors.warning,
-                                  textColor: textColor,
-                                  subtitleColor: subtitleColor,
-                                ),
-                                _zoneMetricRow(
-                                  icon: Icons.calendar_today_outlined,
-                                  label: "Última predicción",
-                                  value:
-                                      _selectedZone!.fechaPrediccion
-                                          ?.toLocal()
-                                          .toString()
-                                          .split(' ')
-                                          .first ??
-                                      "Sin fecha",
-                                  iconColor: AppColors.info,
-                                  textColor: textColor,
-                                  subtitleColor: subtitleColor,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          if (_isCalculatingRoute) ...[
-                            Center(
-                              child: CircularProgressIndicator(
-                                color: isDark
-                                    ? AppColors.secondaryDark
-                                    : AppColors.primary,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              "Calculando la ruta más segura...",
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                color: subtitleColor,
-                              ),
-                            ),
-                          ] else if (_safeRouteResult == null) ...[
-                            ElevatedButton.icon(
-                              onPressed: () => _requestSafeRoute(
-                                LatLng(
-                                  _selectedZone!.grid!.centroLat!,
-                                  _selectedZone!.grid!.centroLon!,
-                                ),
-                              ),
-                              icon: const Icon(Icons.route),
-                              label: Text(
-                                "Ruta Segura",
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isDark
-                                    ? AppColors.primaryDark
-                                    : AppColors.primary,
-                                foregroundColor: AppColors.white,
-                                elevation: 0,
-                                minimumSize: const Size(double.infinity, 46),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ZoneReviewsScreen(
-                                      gridId: _selectedZone!.grid!.id,
-                                      zoneName:
-                                          _selectedZone!.grid!.nombre ?? "Zona",
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.reviews),
-                              label: Text(
-                                "Ver Reseñas",
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.amber,
-                                foregroundColor: Colors.black,
-                                elevation: 0,
-                                minimumSize: const Size(double.infinity, 46),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => NearbyPoliceStationsScreen(
-                                      lat: _selectedZone!.grid!.centroLat!,
-                                      lon: _selectedZone!.grid!.centroLon!,
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.local_police),
-                              label: Text(
-                                "Comisarías cercanas",
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              style: _mapActionStyle(
-                                background: isDark
-                                    ? AppColors.secondaryDark
-                                    : AppColors.info,
-                              ),
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            ElevatedButton.icon(
-                              onPressed: _favoritesLoading
-                                  ? null
-                                  : _toggleFavoriteZone,
-                              icon: Icon(
-                                (_selectedZone?.grid?.id != null &&
-                                        _favoriteGridIds.contains(
-                                          _selectedZone!.grid!.id,
-                                        ))
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                              ),
-                              label: Text(
-                                (_selectedZone?.grid?.id != null &&
-                                        _favoriteGridIds.contains(
-                                          _selectedZone!.grid!.id,
-                                        ))
-                                    ? "Quitar de favoritos"
-                                    : "Agregar a favoritos",
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.pinkAccent,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                minimumSize: const Size(double.infinity, 46),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                            ),
-                          ] else ...[
-                            const Divider(),
-                            const SizedBox(height: 6),
-
-                            Builder(
-                              builder: (_) {
-                                final risk =
-                                    _safeRouteResult!.bestRoute.riskScore;
-
-                                Color riskColor;
-                                if (risk > 20) {
-                                  riskColor = AppColors.danger;
-                                } else if (risk > 10) {
-                                  riskColor = AppColors.warning;
-                                } else {
-                                  riskColor = AppColors.primary;
-                                }
-
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "🛣️ Ruta sugerida",
-                                      style: GoogleFonts.poppins(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: riskColor,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.straighten, size: 16),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "Distancia:",
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "${(_safeRouteResult!.bestRoute.distanceMeters / 1000).toStringAsFixed(2)} km",
-                                          style: GoogleFonts.poppins(
-                                            color: subtitleColor,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.access_time, size: 16),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "Tiempo:",
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "${(_safeRouteResult!.bestRoute.durationSeconds / 60).toStringAsFixed(0)} min",
-                                          style: GoogleFonts.poppins(
-                                            color: subtitleColor,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.warning_amber,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "Riesgo:",
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          _safeRouteResult!.bestRoute.riskScore
-                                              .toStringAsFixed(1),
-                                          style: GoogleFonts.poppins(
-                                            color: riskColor,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.location_on, size: 16),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "Zonas peligrosas:",
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "${_safeRouteResult!.bestRoute.dangerZonesCrossed}",
-                                          style: GoogleFonts.poppins(
-                                            color: riskColor,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.report_problem,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "Zonas medias:",
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "${_safeRouteResult!.bestRoute.mediumZonesCrossed}",
-                                          style: GoogleFonts.poppins(
-                                            color: AppColors.warning,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.check_circle,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "Zonas seguras:",
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "${_safeRouteResult!.bestRoute.lowZonesCrossed}",
-                                          style: GoogleFonts.poppins(
-                                            color: AppColors.success,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-
-                                    const SizedBox(height: 12),
-
-                                    ElevatedButton.icon(
-                                      onPressed: _clearSafeRoute,
-                                      icon: const Icon(Icons.close),
-                                      label: Text(
-                                        "Cerrar ruta",
-                                        style: GoogleFonts.poppins(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.grey.shade700,
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size(
-                                          double.infinity,
-                                          45,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                  _buildSelectedZoneCard(
+                    isDark: isDark,
+                    cardColor: cardColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    borderColor: borderColor,
                   ),
               ],
             ),

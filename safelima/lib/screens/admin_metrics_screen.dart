@@ -3,6 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/models/admin_metrics_model.dart';
 import 'package:safelima/services/admin_metrics_service.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_shimmer.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
 
 class AdminMetricsScreen extends StatefulWidget {
   const AdminMetricsScreen({super.key});
@@ -33,26 +36,18 @@ class _AdminMetricsScreenState extends State<AdminMetricsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error al cargar métricas: $e")));
+      SafeSnackBar.showError(context, "Error al cargar métricas: $e");
     }
   }
 
   Widget _buildCard(String title, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 6,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.subtitleLight;
+
+    return SafeCard(
       child: Row(
         children: [
           CircleAvatar(
@@ -64,13 +59,20 @@ class _AdminMetricsScreenState extends State<AdminMetricsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: GoogleFonts.manrope(fontSize: 13)),
+                Text(
+                  title,
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    color: subtitleColor,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   value,
                   style: GoogleFonts.manrope(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
+                    color: textColor,
                   ),
                 ),
               ],
@@ -82,6 +84,9 @@ class _AdminMetricsScreenState extends State<AdminMetricsScreen> {
   }
 
   Widget _buildSectionTitle(String title) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10, top: 20),
       child: Text(
@@ -89,36 +94,80 @@ class _AdminMetricsScreenState extends State<AdminMetricsScreen> {
         style: GoogleFonts.manrope(
           fontSize: 17,
           fontWeight: FontWeight.bold,
-          color: Colors.black87,
+          color: textColor,
         ),
       ),
     );
   }
 
   Widget _buildSimpleList(List<Widget> children) {
-    return Container(
+    return SafeCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-      ),
       child: Column(children: children),
+    );
+  }
+
+  Widget _buildLoadingShimmer() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const SafeShimmer(width: double.infinity, height: 80),
+        const SizedBox(height: 20),
+        const SafeShimmer(width: 150, height: 24),
+        const SizedBox(height: 10),
+        SafeCard(
+          child: Column(
+            children: const [
+              SafeShimmer(width: double.infinity, height: 40),
+              SizedBox(height: 8),
+              SafeShimmer(width: double.infinity, height: 40),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        const SafeShimmer(width: 150, height: 24),
+        const SizedBox(height: 10),
+        SafeCard(
+          child: Column(
+            children: const [
+              SafeShimmer(width: double.infinity, height: 40),
+              SizedBox(height: 8),
+              SafeShimmer(width: double.infinity, height: 40),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color bgColor = isDark
+        ? AppColors.backgroundDark
+        : AppColors.backgroundLight;
+    final Color textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final Color subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.subtitleLight;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FB),
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: const Text("Métricas de Reportes"),
-        backgroundColor: AppColors.primary,
+        backgroundColor: isDark ? AppColors.cardDark : AppColors.primary,
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? _buildLoadingShimmer()
           : _metrics == null
-          ? const Center(child: Text("No hay métricas disponibles"))
+          ? Center(
+              child: Text(
+                "No hay métricas disponibles",
+                style: GoogleFonts.manrope(fontSize: 15, color: textColor),
+              ),
+            )
           : RefreshIndicator(
               onRefresh: _loadMetrics,
               child: ListView(
@@ -135,10 +184,16 @@ class _AdminMetricsScreenState extends State<AdminMetricsScreen> {
                     _metrics!.porEstado.map((e) {
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(e.estado),
+                        title: Text(
+                          e.estado,
+                          style: GoogleFonts.manrope(color: textColor),
+                        ),
                         trailing: Text(
                           e.total.toString(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
                         ),
                       );
                     }).toList(),
@@ -149,10 +204,16 @@ class _AdminMetricsScreenState extends State<AdminMetricsScreen> {
                     _metrics!.porNivelRiesgo.map((e) {
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(e.nivelRiesgo),
+                        title: Text(
+                          e.nivelRiesgo,
+                          style: GoogleFonts.manrope(color: textColor),
+                        ),
                         trailing: Text(
                           e.total.toString(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
                         ),
                       );
                     }).toList(),
@@ -163,11 +224,20 @@ class _AdminMetricsScreenState extends State<AdminMetricsScreen> {
                     _metrics!.porZona.take(5).map((e) {
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(e.gridNombre),
-                        subtitle: Text("Grid ID: ${e.gridId}"),
+                        title: Text(
+                          e.gridNombre,
+                          style: GoogleFonts.manrope(color: textColor),
+                        ),
+                        subtitle: Text(
+                          "Grid ID: ${e.gridId}",
+                          style: GoogleFonts.manrope(color: subtitleColor),
+                        ),
                         trailing: Text(
                           e.total.toString(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
                         ),
                       );
                     }).toList(),
@@ -178,10 +248,16 @@ class _AdminMetricsScreenState extends State<AdminMetricsScreen> {
                     _metrics!.porFecha.map((e) {
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(e.fecha),
+                        title: Text(
+                          e.fecha,
+                          style: GoogleFonts.manrope(color: textColor),
+                        ),
                         trailing: Text(
                           e.total.toString(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
                         ),
                       );
                     }).toList(),

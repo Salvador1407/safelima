@@ -26,6 +26,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   List<PredictionGrid> _predictions = [];
   bool _loading = true;
+
   static const String _statisticsLoadErrorMessage =
       "Error al cargar estadísticas";
 
@@ -103,21 +104,63 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   void _showStatisticsLoadError() {
     if (!mounted) return;
-
     SafeSnackBar.showError(context, _statisticsLoadErrorMessage);
   }
 
-  Color _bgColor(bool isDark) =>
-      isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+  Color _bgColor(bool isDark) {
+    return isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+  }
 
-  Color _textColor(bool isDark) =>
-      isDark ? AppColors.textDark : AppColors.textLight;
+  Color _cardColor(bool isDark) {
+    return isDark ? AppColors.cardDark : AppColors.cardLight;
+  }
 
-  Color _subtitleColor(bool isDark) =>
-      isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
+  Color _textColor(bool isDark) {
+    return isDark ? AppColors.textDark : AppColors.textLight;
+  }
 
-  Color _borderColor(bool isDark) =>
-      isDark ? AppColors.borderDark : AppColors.borderLight;
+  Color _subtitleColor(bool isDark) {
+    return isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
+  }
+
+  Color _borderColor(bool isDark) {
+    return isDark ? AppColors.borderDark : AppColors.borderLight;
+  }
+
+  Color _accentColor(bool isDark) {
+    return isDark ? AppColors.secondaryDark : AppColors.primary;
+  }
+
+  LinearGradient _appBarGradient(bool isDark) {
+    return isDark
+        ? const LinearGradient(
+            colors: [
+              AppColors.primaryDark,
+              Color(0xFF102A43),
+              AppColors.backgroundDark,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : const LinearGradient(
+            colors: [
+              AppColors.primary,
+              AppColors.secundary,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+  }
+
+  List<BoxShadow> _softShadow(bool isDark) {
+    return [
+      BoxShadow(
+        color: AppColors.black.withValues(alpha: isDark ? 0.24 : 0.08),
+        blurRadius: 18,
+        offset: const Offset(0, 8),
+      ),
+    ];
+  }
 
   Color _riskColorFromAverage(double score) {
     if (score >= 2.5) return AppColors.danger;
@@ -240,6 +283,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final textColor = _textColor(isDark);
     final subtitleColor = _subtitleColor(isDark);
     final borderColor = _borderColor(isDark);
+    final cardColor = _cardColor(isDark);
 
     final zonas = _buildZoneStats();
     final horarios = _buildTimeRiskStats();
@@ -247,11 +291,30 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
+        elevation: 0,
+        centerTitle: false,
+        backgroundColor: Colors.transparent,
+        foregroundColor: AppColors.white,
+        titleSpacing: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: _appBarGradient(isDark),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: isDark ? 0.30 : 0.12),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+        ),
         title: Text(
           "Estadísticas",
           style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
             color: AppColors.white,
+            letterSpacing: -0.2,
           ),
         ),
         actions: const [
@@ -260,31 +323,30 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ],
       ),
       body: _loading
-          ? ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: 4,
-              itemBuilder: (context, index) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: SafeShimmer(
-                  width: double.infinity,
-                  height: 150,
-                  borderRadius: 18,
-                ),
-              ),
-            )
+          ? _buildLoadingList()
           : SafeArea(
               child: RefreshIndicator(
                 onRefresh: _loadPredictions,
-                color: AppColors.primary,
+                color: isDark ? AppColors.secondaryDark : AppColors.primary,
+                backgroundColor: cardColor,
                 child: _predictions.isEmpty
                     ? _buildEmptyState()
                     : ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(18),
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics(),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
                         children: [
-                          _buildHeader(isDark: isDark),
+                          _buildHeader(
+                            isDark: isDark,
+                            textColor: textColor,
+                            subtitleColor: subtitleColor,
+                            borderColor: borderColor,
+                          ),
                           const SizedBox(height: 18),
                           _buildDashboardCard(
+                            isDark: isDark,
+                            borderColor: borderColor,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -292,12 +354,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                   title: "Criticidad por zona",
                                   icon: Icons.location_city_rounded,
                                   textColor: textColor,
+                                  isDark: isDark,
                                 ),
-                                const SizedBox(height: 8),
-                                _buildRiskLegend(),
-                                const SizedBox(height: 14),
+                                const SizedBox(height: 10),
+                                _buildRiskLegend(isDark),
+                                const SizedBox(height: 16),
                                 SizedBox(
-                                  height: 270,
+                                  height: 278,
                                   child: _buildZoneChart(
                                     zonas: zonas,
                                     subtitleColor: subtitleColor,
@@ -312,6 +375,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                             title: "Horarios de Mayor Riesgo",
                             icon: Icons.schedule_rounded,
                             textColor: textColor,
+                            isDark: isDark,
                           ),
                           const SizedBox(height: 12),
                           ...horarios.map(
@@ -324,7 +388,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                               icon: item["icon"] as IconData,
                             ),
                           ),
-                          const SizedBox(height: 25),
+                          const SizedBox(height: 8),
                         ],
                       ),
               ),
@@ -332,55 +396,162 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  Widget _buildHeader({required bool isDark}) {
+  Widget _buildLoadingList() {
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+      itemCount: 4,
+      itemBuilder: (context, index) => const Padding(
+        padding: EdgeInsets.only(bottom: 16),
+        child: SafeShimmer(
+          width: double.infinity,
+          height: 156,
+          borderRadius: 24,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader({
+    required bool isDark,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color borderColor,
+  }) {
+    final accentColor = _accentColor(isDark);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: isDark
-            ? const LinearGradient(
-                colors: [AppColors.primaryDark, AppColors.cardDark],
+            ? null
+            : const LinearGradient(
+                colors: [
+                  AppColors.primary,
+                  AppColors.secundary,
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-              )
-            : AppColors.mainGradient,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withValues(alpha: isDark ? 0.22 : 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+              ),
+        color: isDark ? _cardColor(isDark) : null,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark
+              ? borderColor.withValues(alpha: 0.75)
+              : AppColors.white.withValues(alpha: 0.34),
+        ),
+        boxShadow: _softShadow(isDark),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Text(
-            "Cercado de Lima",
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: AppColors.white,
+          Positioned(
+            top: -44,
+            right: -36,
+            child: Container(
+              width: 122,
+              height: 122,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.white.withValues(alpha: isDark ? 0.04 : 0.10),
+              ),
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            "Patrones de riesgo por zona y horario",
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: AppColors.white.withValues(alpha: 0.92),
-            ),
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? accentColor.withValues(alpha: 0.18)
+                      : AppColors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isDark
+                        ? accentColor.withValues(alpha: 0.25)
+                        : AppColors.white.withValues(alpha: 0.24),
+                  ),
+                ),
+                child: Icon(
+                  Icons.analytics_rounded,
+                  color: isDark ? accentColor : AppColors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Cercado de Lima",
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? textColor : AppColors.white,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Patrones de riesgo por zona y horario",
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        height: 1.3,
+                        color: isDark
+                            ? subtitleColor
+                            : AppColors.white.withValues(alpha: 0.86),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDashboardCard({required Widget child}) {
+  Widget _buildDashboardCard({
+    required Widget child,
+    required bool isDark,
+    required Color borderColor,
+  }) {
     return SizedBox(
       width: double.infinity,
-      child: SafeCard(padding: const EdgeInsets.all(16), child: child),
+      child: SafeCard(
+        padding: EdgeInsets.zero,
+        backgroundColor: _cardColor(isDark),
+        borderColor: borderColor.withValues(alpha: isDark ? 0.55 : 0.85),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -48,
+                right: -42,
+                child: Container(
+                  width: 128,
+                  height: 128,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _accentColor(isDark).withValues(
+                      alpha: isDark ? 0.09 : 0.06,
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: child,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -388,18 +559,30 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     required String title,
     required IconData icon,
     required Color textColor,
+    required bool isDark,
   }) {
+    final accentColor = _accentColor(isDark);
+
     return Row(
       children: [
-        Icon(icon, color: AppColors.primary, size: 20),
-        const SizedBox(width: 8),
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: isDark ? 0.16 : 0.10),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: accentColor, size: 20),
+        ),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(
             title,
             style: GoogleFonts.poppins(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
               color: textColor,
+              letterSpacing: -0.15,
             ),
           ),
         ),
@@ -407,7 +590,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  Widget _buildRiskLegend() {
+  Widget _buildRiskLegend(bool isDark) {
     return Wrap(
       spacing: 10,
       runSpacing: 8,
@@ -453,7 +636,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 48,
+              reservedSize: 50,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
                 if (index < 0 || index >= zonas.length) {
@@ -463,6 +646,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 final label = _shortZoneLabel(
                   zonas[index]["nombre"].toString(),
                 );
+
                 return Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: SizedBox(
@@ -476,6 +660,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                         fontSize: 10.5,
                         color: subtitleColor,
                         height: 1.1,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -484,18 +669,25 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             ),
           ),
         ),
+        barTouchData: BarTouchData(enabled: true),
         barGroups: zonas.asMap().entries.map((entry) {
           final index = entry.key;
           final riesgoPromedio = entry.value["riesgoPromedio"] as double;
+          final riskColor = _riskColorFromAverage(riesgoPromedio);
 
           return BarChartGroupData(
             x: index,
             barRods: [
               BarChartRodData(
                 toY: riesgoPromedio,
-                color: _riskColorFromAverage(riesgoPromedio),
-                borderRadius: BorderRadius.circular(7),
-                width: 20,
+                color: riskColor,
+                borderRadius: BorderRadius.circular(8),
+                width: 22,
+                backDrawRodData: BackgroundBarChartRodData(
+                  show: true,
+                  toY: 3.5,
+                  color: borderColor.withValues(alpha: 0.18),
+                ),
               ),
             ],
           );
@@ -506,7 +698,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   Widget _buildEmptyState() {
     return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: const EdgeInsets.all(24),
       children: [
         SizedBox(height: MediaQuery.of(context).size.height * 0.18),
@@ -529,53 +723,90 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     required Color color,
     required IconData icon,
   }) {
-    final Color textColor = isDark ? AppColors.textDark : AppColors.textLight;
-    final Color subtitleColor = isDark
-        ? AppColors.subtitleDark
-        : AppColors.subtitleLight;
+    final Color textColor = _textColor(isDark);
+    final Color subtitleColor = _subtitleColor(isDark);
+    final Color borderColor = _borderColor(isDark);
 
     return SafeCard(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      borderRadius: 16,
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 21),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  turno,
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                  ),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.zero,
+      borderRadius: 22,
+      backgroundColor: _cardColor(isDark),
+      borderColor: color.withValues(alpha: isDark ? 0.30 : 0.18),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -36,
+              right: -34,
+              child: Container(
+                width: 104,
+                height: 104,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: isDark ? 0.10 : 0.07),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  rango,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: subtitleColor,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          SafeStatusChip(label: label, tone: _riskToneFromLabel(label)),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          color.withValues(alpha: isDark ? 0.22 : 0.15),
+                          color.withValues(alpha: isDark ? 0.10 : 0.07),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(17),
+                      border: Border.all(
+                        color: color.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: Icon(icon, color: color, size: 23),
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          turno,
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: textColor,
+                            letterSpacing: -0.1,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          rango,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            color: subtitleColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SafeStatusChip(
+                    label: label,
+                    tone: _riskToneFromLabel(label),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -585,31 +816,47 @@ class _RiskLegendItem extends StatelessWidget {
   final String label;
   final Color color;
 
-  const _RiskLegendItem({required this.label, required this.color});
+  const _RiskLegendItem({
+    required this.label,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.14 : 0.09),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: color.withValues(alpha: isDark ? 0.22 : 0.16),
         ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: textColor,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

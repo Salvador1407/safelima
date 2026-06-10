@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -29,6 +30,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool isConnected = true;
   bool _notificationsEnabled = true;
+
   static const String _notificationUpdateErrorMessage =
       "No se pudo actualizar el estado de las notificaciones";
   static const String _termsConnectionErrorMessage =
@@ -162,9 +164,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _mostrarDialogoFeedback() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
-    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final cardColor = _cardColor(isDark);
+    final borderColor = _borderColor(isDark);
+    final textColor = _textColor(isDark);
+    final subtitleColor = _subtitleColor(isDark);
+    final accentColor = _accentColor(isDark);
 
     final comentarioController = TextEditingController();
     int estrellasSeleccionadas = 0;
@@ -178,17 +182,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
           builder: (dialogContext, setStateDialog) {
             return AlertDialog(
               backgroundColor: cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-                side: BorderSide(color: borderColor, width: 0.9),
+              elevation: 0,
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 22,
+                vertical: 24,
               ),
-              title: Text(
-                "Califica SafeLima",
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 19,
-                  color: isDark ? AppColors.secondaryDark : AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(26),
+                side: BorderSide(
+                  color: borderColor.withValues(alpha: isDark ? 0.65 : 0.85),
+                  width: 0.9,
                 ),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(
+                        alpha: isDark ? 0.18 : 0.12,
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: const Icon(
+                      Icons.star_rate_rounded,
+                      color: AppColors.accent,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "Califica SafeLima",
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                        color: accentColor,
+                        letterSpacing: -0.15,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               content: SingleChildScrollView(
                 child: Column(
@@ -199,45 +234,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       "¿Cómo fue tu experiencia general en la app?",
                       style: GoogleFonts.poppins(
                         fontSize: 14.5,
+                        height: 1.35,
                         color: textColor,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(5, (index) {
-                        final starIndex = index + 1;
-                        return IconButton(
-                          onPressed: () {
-                            setStateDialog(() {
-                              estrellasSeleccionadas = starIndex;
-                            });
-                          },
-                          icon: Icon(
-                            starIndex <= estrellasSeleccionadas
-                                ? Icons.star_rounded
-                                : Icons.star_border_rounded,
-                            color: Colors.amber,
-                            size: 34,
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.backgroundDark.withValues(alpha: 0.42)
+                            : AppColors.backgroundLight,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: borderColor.withValues(
+                            alpha: isDark ? 0.48 : 0.80,
                           ),
-                        );
-                      }),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(5, (index) {
+                          final starIndex = index + 1;
+                          final selected =
+                              starIndex <= estrellasSeleccionadas;
+
+                          return InkWell(
+                            onTap: enviando
+                                ? null
+                                : () {
+                                    setStateDialog(() {
+                                      estrellasSeleccionadas = starIndex;
+                                    });
+                                  },
+                            borderRadius: BorderRadius.circular(16),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              curve: Curves.easeOut,
+                              width: 42,
+                              height: 42,
+                              alignment: Alignment.center,
+                              margin: const EdgeInsets.symmetric(horizontal: 1),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: selected
+                                    ? AppColors.accent.withValues(
+                                        alpha: isDark ? 0.18 : 0.12,
+                                      )
+                                    : Colors.transparent,
+                              ),
+                              child: Icon(
+                                selected
+                                    ? Icons.star_rounded
+                                    : Icons.star_border_rounded,
+                                color: selected
+                                    ? AppColors.accent
+                                    : subtitleColor.withValues(alpha: 0.65),
+                                size: 31,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: comentarioController,
                       maxLines: 4,
                       maxLength: 300,
-                      style: GoogleFonts.poppins(color: textColor),
+                      enabled: !enviando,
+                      style: GoogleFonts.poppins(
+                        color: textColor,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      cursorColor: accentColor,
                       decoration: safeInputDecoration(
                         context,
                         labelText: "Comentario (opcional)",
                         hintText: "Cuéntanos qué podríamos mejorar",
+                      ).copyWith(
+                        counterStyle: GoogleFonts.poppins(
+                          color: subtitleColor,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
+              actionsPadding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
               actions: [
                 TextButton(
                   onPressed: enviando
@@ -246,10 +338,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Text(
                     "Cancelar",
                     style: GoogleFonts.poppins(
-                      color: isDark
-                          ? AppColors.subtitleDark
-                          : AppColors.subtitleLight,
-                      fontWeight: FontWeight.w600,
+                      color: subtitleColor,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -277,8 +367,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               estrellas: estrellasSeleccionadas,
                               comentario:
                                   comentarioController.text.trim().isEmpty
-                                  ? null
-                                  : comentarioController.text.trim(),
+                                      ? null
+                                      : comentarioController.text.trim(),
                             );
 
                             await _appFeedbackService.createFeedback(feedback);
@@ -333,11 +423,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  Widget _settingsCard({required Widget child}) {
+  Color _backgroundColor(bool isDark) {
+    return isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+  }
+
+  Color _cardColor(bool isDark) {
+    return isDark ? AppColors.cardDark : AppColors.cardLight;
+  }
+
+  Color _textColor(bool isDark) {
+    return isDark ? AppColors.textDark : AppColors.textLight;
+  }
+
+  Color _subtitleColor(bool isDark) {
+    return isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
+  }
+
+  Color _borderColor(bool isDark) {
+    return isDark ? AppColors.borderDark : AppColors.borderLight;
+  }
+
+  Color _accentColor(bool isDark) {
+    return isDark ? AppColors.secondaryDark : AppColors.primary;
+  }
+
+  LinearGradient _appBarGradient(bool isDark) {
+    return isDark
+        ? const LinearGradient(
+            colors: [
+              AppColors.primaryDark,
+              Color(0xFF102A43),
+              AppColors.backgroundDark,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : const LinearGradient(
+            colors: [
+              AppColors.primary,
+              AppColors.secundary,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+  }
+
+  List<BoxShadow> _softShadow(bool isDark) {
+    return [
+      BoxShadow(
+        color: AppColors.black.withValues(alpha: isDark ? 0.24 : 0.08),
+        blurRadius: 18,
+        offset: const Offset(0, 8),
+      ),
+    ];
+  }
+
+  Widget _settingsCard({
+    required Widget child,
+    required bool isDark,
+    EdgeInsetsGeometry margin = const EdgeInsets.fromLTRB(16, 0, 16, 12),
+  }) {
     return SafeCard(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      margin: margin,
       padding: EdgeInsets.zero,
-      child: child,
+      backgroundColor: _cardColor(isDark),
+      borderColor: _borderColor(isDark).withValues(alpha: isDark ? 0.55 : 0.85),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: child,
+      ),
     );
   }
 
@@ -357,8 +511,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+    final cardColor = _cardColor(isDark);
+    final borderColor = _borderColor(isDark);
+    final accentColor = _accentColor(isDark);
 
     final textStyle = theme.textTheme.bodyMedium?.copyWith(
       color: theme.colorScheme.onSurface.withValues(alpha: 0.90),
@@ -369,17 +524,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: cardColor,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: borderColor, width: 0.9),
-        ),
-        title: Text(
-          "Términos y Condiciones de SafeLima",
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
-            color: isDark ? AppColors.secondaryDark : AppColors.primary,
+          borderRadius: BorderRadius.circular(26),
+          side: BorderSide(
+            color: borderColor.withValues(alpha: isDark ? 0.65 : 0.85),
+            width: 0.9,
           ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: isDark ? 0.18 : 0.12),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(
+                Icons.description_rounded,
+                color: accentColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Términos y Condiciones de SafeLima",
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                  color: accentColor,
+                  letterSpacing: -0.15,
+                ),
+              ),
+            ),
+          ],
         ),
         content: SingleChildScrollView(
           child: Text("""
@@ -413,13 +594,14 @@ Para consultas o sugerencias, comuníquese al correo institucional del proyecto:
 Al continuar, confirmas que has leído y aceptas estos términos y condiciones de uso.
 """, style: textStyle),
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               "Cerrar",
               style: GoogleFonts.poppins(
-                color: isDark ? AppColors.secondaryDark : AppColors.primary,
+                color: accentColor,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -513,60 +695,283 @@ Al continuar, confirmas que has leído y aceptas estos términos y condiciones d
     }
   }
 
+  Widget _buildHeaderCard({
+    required bool isDark,
+    required Color textColor,
+    required Color subtitleColor,
+  }) {
+    final accentColor = _accentColor(isDark);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: isDark
+            ? null
+            : const LinearGradient(
+                colors: [
+                  AppColors.primary,
+                  AppColors.secundary,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+        color: isDark ? _cardColor(isDark) : null,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark
+              ? _borderColor(isDark).withValues(alpha: 0.75)
+              : AppColors.white.withValues(alpha: 0.34),
+        ),
+        boxShadow: _softShadow(isDark),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -42,
+            right: -34,
+            child: Container(
+              width: 118,
+              height: 118,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.white.withValues(alpha: isDark ? 0.04 : 0.10),
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? accentColor.withValues(alpha: 0.18)
+                      : AppColors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isDark
+                        ? accentColor.withValues(alpha: 0.25)
+                        : AppColors.white.withValues(alpha: 0.24),
+                  ),
+                ),
+                child: Icon(
+                  Icons.settings_rounded,
+                  color: isDark ? accentColor : AppColors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  "Configuración",
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? textColor : AppColors.white,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile({
+    required bool isDark,
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required Color iconColor,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    final textColor = _textColor(isDark);
+    final subtitleColor = _subtitleColor(isDark);
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      onTap: onTap,
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: iconColor.withValues(alpha: isDark ? 0.16 : 0.10),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Icon(icon, color: iconColor, size: 23),
+      ),
+      title: Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontWeight: FontWeight.w800,
+          color: textColor,
+          fontSize: 15,
+          letterSpacing: -0.1,
+        ),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                subtitle,
+                style: GoogleFonts.poppins(
+                  fontSize: 12.5,
+                  color: subtitleColor,
+                  height: 1.32,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+      trailing: trailing ??
+          Icon(
+            Icons.arrow_forward_ios_rounded,
+            size: 14,
+            color: subtitleColor,
+          ),
+    );
+  }
+
+  Widget _buildNotificationSwitchTile({
+    required bool isDark,
+    required Color primaryColor,
+    required Color textColor,
+    required Color subtitleColor,
+  }) {
+    return SwitchListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      secondary: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: primaryColor.withValues(alpha: isDark ? 0.16 : 0.10),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Icon(
+          Icons.notifications_active_rounded,
+          color: primaryColor,
+          size: 23,
+        ),
+      ),
+      title: Text(
+        "Activar notificaciones",
+        style: GoogleFonts.poppins(
+          fontWeight: FontWeight.w800,
+          color: textColor,
+          fontSize: 15,
+          letterSpacing: -0.1,
+        ),
+      ),
+      subtitle: Text(
+        "Activa o desactiva todas las alertas de SafeLima",
+        style: GoogleFonts.poppins(
+          fontSize: 12.5,
+          color: subtitleColor,
+          height: 1.32,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      value: _notificationsEnabled,
+      activeThumbColor: primaryColor,
+      activeTrackColor: primaryColor.withValues(alpha: 0.3),
+      onChanged: _toggleNotifications,
+    );
+  }
+
+  Widget _buildDangerCard({
+    required bool isDark,
+    required Color textColor,
+    required Color subtitleColor,
+  }) {
+    return SafeCard(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: EdgeInsets.zero,
+      backgroundColor: _cardColor(isDark),
+      borderColor: AppColors.danger.withValues(alpha: isDark ? 0.36 : 0.22),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Column(
+          children: [
+            _buildSettingsTile(
+              isDark: isDark,
+              icon: Icons.delete_forever_rounded,
+              title: "Eliminar cuenta",
+              iconColor: AppColors.danger,
+              onTap: _eliminarCuenta,
+              trailing: Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: subtitleColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
-    final subtitleColor = isDark
-        ? AppColors.subtitleDark
-        : AppColors.subtitleLight;
-    final primaryColor = isDark ? AppColors.secondaryDark : AppColors.primary;
+    final bgColor = _backgroundColor(isDark);
+    final textColor = _textColor(isDark);
+    final subtitleColor = _subtitleColor(isDark);
+    final primaryColor = _accentColor(isDark);
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
+        elevation: 0,
+        centerTitle: false,
+        backgroundColor: Colors.transparent,
+        foregroundColor: AppColors.white,
+        titleSpacing: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: _appBarGradient(isDark),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: isDark ? 0.30 : 0.12),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+        ),
         title: Text(
           "Configuración",
           style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: AppColors.white,
+            letterSpacing: -0.2,
           ),
         ),
-        centerTitle: true,
-        elevation: 0,
-        flexibleSpace: isDark
-            ? null
-            : Container(
-                decoration: const BoxDecoration(
-                  gradient: AppColors.mainGradient,
-                ),
-              ),
-        backgroundColor: isDark ? AppColors.backgroundDark : null,
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 18),
           children: [
+            _buildHeaderCard(
+              isDark: isDark,
+              textColor: textColor,
+              subtitleColor: subtitleColor,
+            ),
             _settingsCard(
-              child: ListTile(
-                leading: Icon(
-                  isConnected ? Icons.wifi_rounded : Icons.wifi_off_rounded,
-                  color: isConnected ? AppColors.success : AppColors.danger,
-                ),
-                title: Text(
-                  "Estado de conexión",
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                    fontSize: 15,
-                  ),
-                ),
-                subtitle: Text(
-                  isConnected ? "Conectado" : "Sin conexión",
-                  style: GoogleFonts.poppins(
-                    color: subtitleColor,
-                    fontSize: 13,
-                  ),
-                ),
+              isDark: isDark,
+              child: _buildSettingsTile(
+                isDark: isDark,
+                icon: isConnected
+                    ? Icons.wifi_rounded
+                    : Icons.wifi_off_rounded,
+                title: "Estado de conexión",
+                subtitle: isConnected ? "Conectado" : "Sin conexión",
+                iconColor: isConnected ? AppColors.success : AppColors.danger,
                 trailing: SafeStatusChip(
                   label: isConnected ? "CONECTADO" : "SIN RED",
                   tone: isConnected
@@ -576,114 +981,54 @@ Al continuar, confirmas que has leído y aceptas estos términos y condiciones d
               ),
             ),
             _settingsCard(
-              child: SwitchListTile(
-                secondary: Icon(
-                  Icons.notifications_active_rounded,
-                  color: primaryColor,
-                ),
-                title: Text(
-                  "Activar notificaciones",
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                    fontSize: 15,
-                  ),
-                ),
-                subtitle: Text(
-                  "Activa o desactiva todas las alertas de SafeLima",
-                  style: GoogleFonts.poppins(
-                    fontSize: 12.5,
-                    color: subtitleColor,
-                  ),
-                ),
-                value: _notificationsEnabled,
-                activeThumbColor: isDark
-                    ? AppColors.secondaryDark
-                    : AppColors.primary,
-                activeTrackColor:
-                    (isDark ? AppColors.secondaryDark : AppColors.primary)
-                        .withValues(alpha: 0.3),
-                onChanged: _toggleNotifications,
+              isDark: isDark,
+              child: _buildNotificationSwitchTile(
+                isDark: isDark,
+                primaryColor: primaryColor,
+                textColor: textColor,
+                subtitleColor: subtitleColor,
               ),
             ),
             _settingsCard(
-              child: ListTile(
-                leading: Icon(Icons.description_rounded, color: primaryColor),
-                title: Text(
-                  "Términos y condiciones de uso",
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                    fontSize: 15,
-                  ),
-                ),
+              isDark: isDark,
+              child: _buildSettingsTile(
+                isDark: isDark,
+                icon: Icons.description_rounded,
+                title: "Términos y condiciones de uso",
+                iconColor: primaryColor,
                 onTap: _showTermsAndConditions,
-                trailing: Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: subtitleColor,
-                ),
               ),
             ),
             _settingsCard(
-              child: ListTile(
-                leading: const Icon(
-                  Icons.star_rate_rounded,
-                  color: Colors.amber,
-                ),
-                title: Text(
-                  "Calificar la aplicación",
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                    fontSize: 15,
-                  ),
-                ),
-                subtitle: Text(
-                  "Ayúdanos a mejorar SafeLima",
-                  style: GoogleFonts.poppins(
-                    fontSize: 12.5,
-                    color: subtitleColor,
-                  ),
-                ),
-                trailing: Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: subtitleColor,
-                ),
+              isDark: isDark,
+              child: _buildSettingsTile(
+                isDark: isDark,
+                icon: Icons.star_rate_rounded,
+                title: "Calificar la aplicación",
+                subtitle: "Ayúdanos a mejorar SafeLima",
+                iconColor: AppColors.accent,
                 onTap: _mostrarDialogoFeedback,
               ),
             ),
             _settingsCard(
-              child: ListTile(
-                leading: const Icon(Icons.logout_rounded, color: Colors.orange),
-                title: Text(
-                  "Cerrar sesión",
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                    fontSize: 15,
-                  ),
-                ),
+              isDark: isDark,
+              child: _buildSettingsTile(
+                isDark: isDark,
+                icon: Icons.logout_rounded,
+                title: "Cerrar sesión",
+                iconColor: AppColors.warning,
                 onTap: _cerrarSesion,
+                trailing: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: subtitleColor,
+                ),
               ),
             ),
-            _settingsCard(
-              child: ListTile(
-                leading: const Icon(
-                  Icons.delete_forever_rounded,
-                  color: AppColors.danger,
-                ),
-                title: Text(
-                  "Eliminar cuenta",
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                    fontSize: 15,
-                  ),
-                ),
-                onTap: _eliminarCuenta,
-              ),
+            _buildDangerCard(
+              isDark: isDark,
+              textColor: textColor,
+              subtitleColor: subtitleColor,
             ),
           ],
         ),

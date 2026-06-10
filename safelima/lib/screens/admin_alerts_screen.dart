@@ -6,6 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/models/user_alert.dart';
 import 'package:safelima/services/user_alert_service.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_status_chip.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
+import 'package:safelima/widgets/safe_shimmer.dart';
 
 class AdminAlertsScreen extends StatefulWidget {
   const AdminAlertsScreen({super.key});
@@ -36,24 +40,18 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
 
   Future<void> _loadAlerts() async {
     try {
-      // 1. Obtén la lista directamente (ya viene convertida por el service)
       final alerts = await _alertService.getAllAlerts();
 
       if (!mounted) return;
       setState(() {
-        _alerts = alerts; // 2. Asigna la lista directamente
+        _alerts = alerts;
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error al cargar alertas: $e"),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      SafeSnackBar.showError(context, "Error al cargar alertas: $e");
     }
   }
 
@@ -79,13 +77,7 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
 
   void _showUpdateStatusError() {
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(_updateStatusErrorMessage),
-        backgroundColor: AppColors.danger,
-      ),
-    );
+    SafeSnackBar.showError(context, _updateStatusErrorMessage);
   }
 
   Future<void> _changeStatus(UserAlert alert, String newStatus) async {
@@ -126,12 +118,7 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
         }
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Estado actualizado correctamente"),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      SafeSnackBar.showSuccess(context, "Estado actualizado correctamente");
     } on SocketException {
       if (!mounted) return;
       setState(() {
@@ -155,50 +142,64 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
     }
   }
 
-  Color _statusColor(String? estado) {
-    switch (estado) {
-      case "Recibido":
-        return Colors.orange;
-      case "En proceso":
-        return Colors.blue;
-      case "Cerrado":
-        return Colors.green;
+  SafeStatusChip _buildRiskChip(String? riesgo) {
+    final label = "Riesgo: ${riesgo ?? 'N/A'}";
+    switch (riesgo?.toLowerCase()) {
+      case 'alto':
+        return SafeStatusChip.danger(
+          label: label,
+          icon: Icons.priority_high_rounded,
+        );
+      case 'medio':
+        return SafeStatusChip.warning(
+          label: label,
+          icon: Icons.warning_amber_rounded,
+        );
+      case 'bajo':
+        return SafeStatusChip.success(
+          label: label,
+          icon: Icons.check_circle_outline_rounded,
+        );
       default:
-        return Colors.grey;
+        return SafeStatusChip.neutral(
+          label: label,
+          icon: Icons.help_outline_rounded,
+        );
     }
   }
 
-  Color _riskColor(String? riesgo) {
-    switch (riesgo?.toLowerCase()) {
-      case "alto":
-        return Colors.red;
-      case "medio":
-        return Colors.orange;
-      case "bajo":
-        return Colors.green;
+  SafeStatusChip _buildStatusChip(String? estado) {
+    final label = "Estado: ${estado ?? 'N/A'}";
+    switch (estado) {
+      case 'Recibido':
+        return SafeStatusChip.warning(
+          label: label,
+          icon: Icons.mark_email_unread_rounded,
+        );
+      case 'En proceso':
+        return SafeStatusChip.info(label: label, icon: Icons.sync_rounded);
+      case 'Cerrado':
+        return SafeStatusChip.success(
+          label: label,
+          icon: Icons.task_alt_rounded,
+        );
       default:
-        return Colors.grey;
+        return SafeStatusChip.neutral(
+          label: label,
+          icon: Icons.help_outline_rounded,
+        );
     }
   }
 
   Widget _buildAlertCard(UserAlert alert) {
-    final statusColor = _statusColor(alert.estado);
-    final riskColor = _riskColor(alert.nivelRiesgo);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.subtitleLight;
 
-    return Container(
+    return SafeCard(
       margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -208,7 +209,7 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
               style: GoogleFonts.manrope(
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: textColor,
               ),
             ),
 
@@ -219,15 +220,15 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
             style: GoogleFonts.manrope(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: Colors.black87,
+              color: textColor,
             ),
           ),
 
           const SizedBox(height: 6),
 
           Text(
-            alert.descripcion ?? "Sin descripción",
-            style: GoogleFonts.manrope(fontSize: 13.5, color: Colors.black54),
+            alert.descripcion,
+            style: GoogleFonts.manrope(fontSize: 13.5, color: subtitleColor),
           ),
 
           const SizedBox(height: 12),
@@ -236,42 +237,8 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: riskColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  "Riesgo: ${alert.nivelRiesgo ?? 'N/A'}",
-                  style: GoogleFonts.manrope(
-                    color: riskColor,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12.5,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  "Estado: ${alert.estado ?? 'N/A'}",
-                  style: GoogleFonts.manrope(
-                    color: statusColor,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12.5,
-                  ),
-                ),
-              ),
+              _buildRiskChip(alert.nivelRiesgo),
+              _buildStatusChip(alert.estado),
             ],
           ),
 
@@ -285,19 +252,34 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
                 : null,
             decoration: InputDecoration(
               labelText: "Cambiar estado",
-              labelStyle: GoogleFonts.manrope(),
-              border: OutlineInputBorder(
+              labelStyle: GoogleFonts.manrope(color: subtitleColor),
+              enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: isDark ? AppColors.secondaryDark : AppColors.primary,
+                  width: 1.5,
+                ),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 10,
               ),
             ),
+            style: GoogleFonts.manrope(color: textColor),
+            dropdownColor: isDark ? AppColors.cardDark : AppColors.white,
             items: _statusOptions.map((status) {
               return DropdownMenuItem<String>(
                 value: status,
-                child: Text(status, style: GoogleFonts.manrope()),
+                child: Text(
+                  status,
+                  style: GoogleFonts.manrope(color: textColor),
+                ),
               );
             }).toList(),
             onChanged: (value) {
@@ -311,10 +293,7 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
             const SizedBox(height: 10),
             Text(
               "Fecha: ${alert.fecha}",
-              style: GoogleFonts.manrope(
-                fontSize: 12.5,
-                color: Colors.grey.shade600,
-              ),
+              style: GoogleFonts.manrope(fontSize: 12.5, color: subtitleColor),
             ),
           ],
         ],
@@ -322,25 +301,61 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
     );
   }
 
+  Widget _buildLoadingShimmer() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 4,
+      itemBuilder: (context, index) {
+        return SafeCard(
+          margin: const EdgeInsets.only(bottom: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SafeShimmer(width: 180, height: 20),
+              const SizedBox(height: 10),
+              const SafeShimmer(width: 120, height: 16),
+              const SizedBox(height: 8),
+              const SafeShimmer(width: double.infinity, height: 40),
+              const SizedBox(height: 12),
+              Row(
+                children: const [
+                  SafeShimmer(width: 90, height: 26, borderRadius: 20),
+                  SizedBox(width: 10),
+                  SafeShimmer(width: 90, height: 26, borderRadius: 20),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color bgColor = isDark
+        ? AppColors.backgroundDark
+        : AppColors.backgroundLight;
+    final Color textColor = isDark ? AppColors.textDark : AppColors.textLight;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FB),
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: Text(
           "Gestión de Reportes",
           style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: isDark ? AppColors.cardDark : AppColors.primary,
         foregroundColor: Colors.white,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? _buildLoadingShimmer()
           : _alerts.isEmpty
           ? Center(
               child: Text(
                 "No hay reportes registrados",
-                style: GoogleFonts.manrope(fontSize: 15),
+                style: GoogleFonts.manrope(fontSize: 15, color: textColor),
               ),
             )
           : RefreshIndicator(

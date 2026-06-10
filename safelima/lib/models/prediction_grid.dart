@@ -6,6 +6,7 @@ class PredictionGrid {
   final int scoreRiesgo;
   final String nivelRiesgo;
   final DateTime? fechaPrediccion;
+  final String? tramoHorario;
   final Grid? grid;
 
   PredictionGrid({
@@ -14,6 +15,7 @@ class PredictionGrid {
     required this.scoreRiesgo,
     required this.nivelRiesgo,
     this.fechaPrediccion,
+    this.tramoHorario,
     this.grid,
   });
 
@@ -27,8 +29,9 @@ class PredictionGrid {
             : 0,
         nivelRiesgo: json['nivel_riesgo'] ?? '',
         fechaPrediccion: json['fecha_prediccion'] != null
-            ? DateTime.parse(json['fecha_prediccion'])
+            ? DateTime.tryParse(json['fecha_prediccion'].toString())
             : null,
+        tramoHorario: json['tramo_horario']?.toString(),
         grid: json['grid'] != null ? Grid.fromPrediction(json['grid']) : null,
       );
     } catch (e) {
@@ -44,6 +47,7 @@ class PredictionGrid {
       'score_riesgo': scoreRiesgo,
       'nivel_riesgo': nivelRiesgo,
       'fecha_prediccion': fechaPrediccion?.toIso8601String(),
+      'tramo_horario': tramoHorario,
     };
   }
 }

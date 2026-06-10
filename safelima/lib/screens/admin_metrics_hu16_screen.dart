@@ -6,6 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/models/admin_metrics_model.dart';
 import 'package:safelima/services/admin_metrics_service.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_shimmer.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
 
 class AdminMetricsHu16Screen extends StatefulWidget {
   const AdminMetricsHu16Screen({super.key});
@@ -88,6 +92,12 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
   }
 
   Widget _buildMetricsErrorView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.subtitleLight;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -102,30 +112,23 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
               style: GoogleFonts.manrope(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: textColor,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               "Verifica tu conexión o intenta nuevamente cuando el servidor esté disponible.",
               textAlign: TextAlign.center,
-              style: GoogleFonts.manrope(fontSize: 13, color: Colors.black54),
+              style: GoogleFonts.manrope(fontSize: 13, color: subtitleColor),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
+            SafeButton(
               onPressed: () {
                 setState(() => _loading = true);
                 _loadMetrics();
               },
-              icon: const Icon(Icons.refresh),
-              label: Text(
-                "Reintentar",
-                style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
+              icon: Icons.refresh,
+              label: "Reintentar",
             ),
           ],
         ),
@@ -155,13 +158,7 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
 
   void _showMetricsError() {
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(_metricsErrorMessage),
-        backgroundColor: AppColors.danger,
-      ),
-    );
+    SafeSnackBar.showError(context, _metricsErrorMessage);
   }
 
   int _getHighRiskTotal() {
@@ -192,19 +189,13 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
     required Color color,
     String? subtitle,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.subtitleLight;
+
+    return SafeCard(
       child: Row(
         children: [
           CircleAvatar(
@@ -221,7 +212,7 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
                   title,
                   style: GoogleFonts.manrope(
                     fontSize: 13,
-                    color: Colors.black54,
+                    color: subtitleColor,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -231,7 +222,7 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
                   style: GoogleFonts.manrope(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: textColor,
                   ),
                 ),
                 if (subtitle != null) ...[
@@ -240,7 +231,7 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
                     subtitle,
                     style: GoogleFonts.manrope(
                       fontSize: 12,
-                      color: Colors.black45,
+                      color: subtitleColor.withOpacity(0.8),
                     ),
                   ),
                 ],
@@ -253,6 +244,9 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
   }
 
   Widget _buildSectionTitle(String title, IconData icon) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+
     return Padding(
       padding: const EdgeInsets.only(top: 20, bottom: 10),
       child: Row(
@@ -264,7 +258,7 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
             style: GoogleFonts.manrope(
               fontSize: 17,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: textColor,
             ),
           ),
         ],
@@ -273,24 +267,13 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
   }
 
   Widget _buildContainer({required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: child,
-    );
+    return SafeCard(padding: const EdgeInsets.all(14), child: child);
   }
 
   Widget _buildMetricRow(String label, int total, {Color? color}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -301,6 +284,7 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
               style: GoogleFonts.manrope(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
+                color: textColor,
               ),
             ),
           ),
@@ -325,6 +309,11 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
 
   Widget _buildTopZonesList() {
     final zonas = _metrics!.porZona.take(5).toList();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.subtitleLight;
 
     return _buildContainer(
       child: Column(
@@ -337,14 +326,21 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
             ),
             title: Text(
               z.gridNombre,
-              style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
+              style: GoogleFonts.manrope(
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
             ),
-            subtitle: Text("Grid ID: ${z.gridId}"),
+            subtitle: Text(
+              "Grid ID: ${z.gridId}",
+              style: GoogleFonts.manrope(color: subtitleColor),
+            ),
             trailing: Text(
               z.total.toString(),
               style: GoogleFonts.manrope(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
+                color: textColor,
               ),
             ),
           );
@@ -406,20 +402,31 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
 
   Widget _buildTimelineList() {
     final fechas = _metrics!.porFecha.take(7).toList();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
 
     return _buildContainer(
       child: Column(
         children: fechas.map((e) {
           return ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.calendar_today_outlined),
+            leading: Icon(
+              Icons.calendar_today_outlined,
+              color: isDark ? AppColors.secondaryDark : AppColors.primary,
+            ),
             title: Text(
               e.fecha,
-              style: GoogleFonts.manrope(fontWeight: FontWeight.w600),
+              style: GoogleFonts.manrope(
+                fontWeight: FontWeight.w600,
+                color: textColor,
+              ),
             ),
             trailing: Text(
               e.total.toString(),
-              style: GoogleFonts.manrope(fontWeight: FontWeight.bold),
+              style: GoogleFonts.manrope(
+                fontWeight: FontWeight.bold,
+                color: textColor,
+              ),
             ),
           );
         }).toList(),
@@ -429,12 +436,17 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
 
   Widget _buildModelCard() {
     final modelo = _metrics!.modelo;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.textDark : AppColors.textLight;
+    final subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.subtitleLight;
 
     return _buildContainer(
       child: modelo == null
           ? Text(
               "No hay métricas del modelo registradas.",
-              style: GoogleFonts.manrope(fontSize: 14),
+              style: GoogleFonts.manrope(fontSize: 14, color: textColor),
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,16 +456,23 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
                   style: GoogleFonts.manrope(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
+                    color: textColor,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   "Versión: ${modelo.version ?? '--'}",
-                  style: GoogleFonts.manrope(fontSize: 13),
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    color: subtitleColor,
+                  ),
                 ),
                 Text(
                   "Entrenado: ${_formatDate(modelo.fechaEntrenamiento)}",
-                  style: GoogleFonts.manrope(fontSize: 13),
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    color: subtitleColor,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 Wrap(
@@ -482,6 +501,11 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
   }
 
   Widget _buildMiniMetric(String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subtitleColor = isDark
+        ? AppColors.subtitleDark
+        : AppColors.subtitleLight;
+
     return Container(
       width: 110,
       padding: const EdgeInsets.all(12),
@@ -502,28 +526,69 @@ class _AdminMetricsHu16ScreenState extends State<AdminMetricsHu16Screen> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: GoogleFonts.manrope(fontSize: 12, color: Colors.black54),
+            style: GoogleFonts.manrope(fontSize: 12, color: subtitleColor),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildLoadingShimmer() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const SafeShimmer(width: double.infinity, height: 80),
+        const SizedBox(height: 18),
+        const SafeShimmer(width: double.infinity, height: 90),
+        const SizedBox(height: 12),
+        const SafeShimmer(width: double.infinity, height: 90),
+        const SizedBox(height: 12),
+        const SafeShimmer(width: double.infinity, height: 90),
+        const SizedBox(height: 20),
+        const SafeShimmer(width: 200, height: 24),
+        const SizedBox(height: 10),
+        SafeCard(
+          child: Column(
+            children: const [
+              SafeShimmer(width: double.infinity, height: 20),
+              SizedBox(height: 10),
+              SafeShimmer(width: double.infinity, height: 16),
+              SizedBox(height: 10),
+              SafeShimmer(width: double.infinity, height: 16),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color bgColor = isDark
+        ? AppColors.backgroundDark
+        : AppColors.backgroundLight;
+    final Color textColor = isDark ? AppColors.textDark : AppColors.textLight;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FB),
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: const Text("Metricas del Sistema"),
-        backgroundColor: AppColors.primary,
+        backgroundColor: isDark ? AppColors.cardDark : AppColors.primary,
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? _buildLoadingShimmer()
           : _metrics == null && _metricsLoadFailed
           ? _buildMetricsErrorView()
           : _metrics == null
-          ? const Center(child: Text("No hay métricas disponibles"))
+          ? Center(
+              child: Text(
+                "No hay métricas disponibles",
+                style: GoogleFonts.manrope(fontSize: 15, color: textColor),
+              ),
+            )
           : RefreshIndicator(
               onRefresh: _loadMetrics,
               child: ListView(
