@@ -1,4 +1,3 @@
-
 import 'package:safelima/models/grid.dart';
 
 class FavoriteArea {
@@ -29,9 +28,6 @@ class FavoriteArea {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      "citizen_id": citizenId,
-      "grid_id": gridId,
-    };
+    return {"citizen_id": citizenId, "grid_id": gridId};
   }
 }

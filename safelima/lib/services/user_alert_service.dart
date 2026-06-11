@@ -5,7 +5,8 @@ import 'dart:io';
 import 'package:http_parser/http_parser.dart';
 
 class UserAlertService {
-  final String baseUrl = "http://192.168.0.7:8080/alerts";
+  final String baseUrl =
+      "https://safelima-backend-1010928585686.us-central1.run.app/alerts";
 
   // CREATE (POST)
   Future<void> createAlert(Map<String, dynamic> body) async {

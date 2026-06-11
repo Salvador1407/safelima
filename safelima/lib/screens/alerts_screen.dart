@@ -6,6 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/screens/my_reports_screen.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_empty_state.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
+import 'package:safelima/widgets/safe_status_chip.dart';
+import 'package:safelima/widgets/safe_shimmer.dart';
 import '../../models/user_alert.dart';
 import '../../services/user_alert_service.dart';
 
@@ -76,12 +81,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   void _showLoadAlertsError() {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(_loadAlertsErrorMessage),
-        backgroundColor: AppColors.danger,
-      ),
-    );
+    SafeSnackBar.showError(context, _loadAlertsErrorMessage);
   }
 
   Future<void> _refreshAlerts() async {
@@ -108,6 +108,27 @@ class _AlertsScreenState extends State<AlertsScreen> {
     return isDark ? AppColors.borderDark : AppColors.borderLight;
   }
 
+  LinearGradient _appBarGradient(bool isDark) {
+    return isDark
+        ? const LinearGradient(
+            colors: [
+              AppColors.primaryDark,
+              Color(0xFF102A43),
+              AppColors.backgroundDark,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : const LinearGradient(
+            colors: [
+              AppColors.primary,
+              AppColors.secundary,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -116,301 +137,441 @@ class _AlertsScreenState extends State<AlertsScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
+        elevation: 0,
+        centerTitle: false,
+        backgroundColor: Colors.transparent,
+        foregroundColor: AppColors.white,
+        titleSpacing: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: _appBarGradient(isDark),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: isDark ? 0.30 : 0.12),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+        ),
         title: Text(
           "Alertas",
           style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
             color: AppColors.white,
+            letterSpacing: -0.2,
           ),
         ),
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            )
+          ? _buildLoadingList(isDark)
           : RefreshIndicator(
-              color: AppColors.primary,
-              backgroundColor: isDark
-                  ? AppColors.cardDark
-                  : AppColors.cardLight,
+              color: isDark ? AppColors.secondaryDark : AppColors.primary,
+              backgroundColor: _cardColor(isDark),
               onRefresh: _refreshAlerts,
               child: _alerts.isEmpty
-                  ? ListView(
-                      padding: const EdgeInsets.all(24),
-                      children: [
-                        const SizedBox(height: 120),
-                        Icon(
-                          Icons.notifications_off_outlined,
-                          size: 64,
-                          color: isDark
-                              ? AppColors.subtitleDark
-                              : AppColors.subtitleLight,
-                        ),
-                        const SizedBox(height: 16),
-                        Center(
-                          child: Text(
-                            "No hay alertas registradas",
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? AppColors.textDark
-                                  : AppColors.textLight,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Center(
-                          child: Text(
-                            "Desliza hacia abajo para actualizar.",
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: isDark
-                                  ? AppColors.subtitleDark
-                                  : AppColors.subtitleLight,
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        _buildMyReportsAccess(isDark),
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                      itemCount: _alerts.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return _buildMyReportsAccess(isDark);
+                        }
 
-                        Expanded(
-                          child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            itemCount: _alerts.length,
-                            itemBuilder: (context, index) {
-                              final alert = _alerts[index];
-                              return _buildAlertCard(alert, isDark);
-                            },
-                          ),
-                        ),
-                      ],
+                        final alert = _alerts[index - 1];
+                        return _buildAlertCard(alert, isDark);
+                      },
                     ),
             ),
     );
   }
 
-  Widget _buildMyReportsAccess(bool isDark) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : AppColors.cardLight,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primary.withOpacity(0.35)),
+  Widget _buildLoadingList(bool isDark) {
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+      itemCount: 5,
+      itemBuilder: (context, index) => Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: SafeShimmer(
+          width: double.infinity,
+          height: 164,
+          borderRadius: 24,
+        ),
       ),
-      child: Row(
-        children: [
-          const Icon(Icons.assignment_outlined, color: AppColors.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Mis reportes",
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? AppColors.textDark : AppColors.textLight,
-                  ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      padding: const EdgeInsets.all(24),
+      children: const [
+        SizedBox(height: 60),
+        SafeEmptyState(
+          icon: Icons.notifications_off_outlined,
+          title: "No hay alertas registradas",
+          message: "Desliza hacia abajo para actualizar.",
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMyReportsAccess(bool isDark) {
+    final textColor = _textColor(isDark);
+    final subtitleColor = _subtitleColor(isDark);
+    final borderColor = _borderColor(isDark);
+    final cardColor = _cardColor(isDark);
+    final accentColor = isDark ? AppColors.secondaryDark : AppColors.primary;
+
+    return SafeCard(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.zero,
+      backgroundColor: cardColor,
+      borderColor: accentColor.withValues(alpha: isDark ? 0.34 : 0.22),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MyReportsScreen()),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -34,
+              right: -30,
+              child: Container(
+                width: 104,
+                height: 104,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: accentColor.withValues(alpha: isDark ? 0.11 : 0.08),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  "Edita o elimina tus reportes.",
-                  style: GoogleFonts.poppins(
-                    fontSize: 12.5,
-                    color: isDark
-                        ? AppColors.subtitleDark
-                        : AppColors.subtitleLight,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MyReportsScreen()),
-              );
-            },
-            child: const Text("Ver"),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(15),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          accentColor.withValues(alpha: isDark ? 0.26 : 0.18),
+                          accentColor.withValues(alpha: isDark ? 0.12 : 0.08),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(17),
+                      border: Border.all(
+                        color: accentColor.withValues(
+                          alpha: isDark ? 0.24 : 0.16,
+                        ),
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.assignment_outlined,
+                      color: accentColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Mis reportes",
+                          style: GoogleFonts.poppins(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w800,
+                            color: textColor,
+                            letterSpacing: -0.1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "Edita o elimina tus reportes.",
+                          style: GoogleFonts.poppins(
+                            fontSize: 12.5,
+                            color: subtitleColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: isDark ? 0.15 : 0.10),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: borderColor.withValues(alpha: isDark ? 0.45 : 0.7),
+                      ),
+                    ),
+                    child: Text(
+                      "Ver",
+                      style: GoogleFonts.poppins(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: accentColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildAlertCard(UserAlert alert, bool isDark) {
     late Color statusColor;
-    late IconData icon;
-    late String label;
+    late SafeStatusChip riskChip;
 
     switch (alert.nivelRiesgo.toLowerCase()) {
       case "alto":
         statusColor = AppColors.danger;
-        icon = Icons.warning_amber_rounded;
-        label = "ALTO RIESGO";
+        riskChip = const SafeStatusChip.danger(
+          label: "ALTO RIESGO",
+          icon: Icons.warning_amber_rounded,
+        );
         break;
       case "medio":
         statusColor = AppColors.warning;
-        icon = Icons.error_outline;
-        label = "RIESGO MEDIO";
+        riskChip = const SafeStatusChip.warning(
+          label: "RIESGO MEDIO",
+          icon: Icons.error_outline,
+        );
         break;
       case "bajo":
         statusColor = AppColors.success;
-        icon = Icons.verified_rounded;
-        label = "ZONA SEGURA";
+        riskChip = const SafeStatusChip.success(
+          label: "ZONA SEGURA",
+          icon: Icons.verified_rounded,
+        );
         break;
       default:
         statusColor = isDark ? AppColors.subtitleDark : Colors.grey;
-        icon = Icons.info_outline;
-        label = "INDEFINIDO";
+        riskChip = const SafeStatusChip.neutral(
+          label: "INDEFINIDO",
+          icon: Icons.info_outline,
+        );
     }
 
-    final cardColor = _cardColor(isDark);
     final textColor = _textColor(isDark);
     final subtitleColor = _subtitleColor(isDark);
     final borderColor = _borderColor(isDark);
+    final cardColor = _cardColor(isDark);
 
-    return Card(
-      color: cardColor,
-      elevation: isDark ? 1 : 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: statusColor.withOpacity(isDark ? 0.75 : 0.55),
-          width: 1.5,
-        ),
-      ),
+    return SafeCard(
       margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      padding: EdgeInsets.zero,
+      backgroundColor: cardColor,
+      borderColor: statusColor.withValues(alpha: isDark ? 0.34 : 0.20),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
           children: [
-            /// Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      statusColor.withValues(alpha: isDark ? 0.11 : 0.07),
+                      cardColor,
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: -42,
+              right: -38,
+              child: Container(
+                width: 116,
+                height: 116,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: statusColor.withValues(alpha: isDark ? 0.10 : 0.07),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(15),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Icon(icon, color: statusColor),
-                      const SizedBox(width: 6),
-                      Expanded(
+                      riskChip,
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.black.withValues(alpha: 0.14)
+                              : AppColors.backgroundLight,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: borderColor.withValues(
+                              alpha: isDark ? 0.50 : 0.75,
+                            ),
+                          ),
+                        ),
                         child: Text(
-                          label,
-                          overflow: TextOverflow.ellipsis,
+                          alert.fecha != null
+                              ? "${alert.fecha!.hour}:${alert.fecha!.minute.toString().padLeft(2, '0')}"
+                              : "--:--",
                           style: GoogleFonts.poppins(
-                            color: statusColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            color: subtitleColor,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                Text(
-                  alert.fecha != null
-                      ? "${alert.fecha!.hour}:${alert.fecha!.minute.toString().padLeft(2, '0')}"
-                      : "--:--",
-                  style: GoogleFonts.poppins(
-                    color: subtitleColor,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            /// Título
-            Text(
-              alert.titulo,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: textColor,
-              ),
-            ),
-            const SizedBox(height: 4),
-
-            /// Descripción
-            Text(
-              alert.descripcion,
-              style: GoogleFonts.poppins(fontSize: 13, color: subtitleColor),
-            ),
-
-            // --- AQUÍ COLOCAS EL CÓDIGO DE LA IMAGEN ---
-            if (alert.rutaFoto != null &&
-                alert.rutaFoto!.isNotEmpty &&
-                alert.rutaFoto!.startsWith(
-                  'http',
-                )) // Valida que sea una URL de internet
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10.0),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    alert.rutaFoto!,
-                    //height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 150,
-                      color: isDark ? Colors.grey[800] : Colors.grey[200],
-                      child: const Icon(Icons.broken_image, color: Colors.grey),
+                  const SizedBox(height: 13),
+                  Text(
+                    alert.titulo,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16.2,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
+                      letterSpacing: -0.15,
                     ),
                   ),
-                ),
-              ),
-
-            /// Ubicación
-            if (alert.grid?.nombre != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? borderColor.withOpacity(0.35)
-                      : AppColors.backgroundLight,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: borderColor.withOpacity(0.7)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 16,
-                      color: statusColor,
+                  const SizedBox(height: 6),
+                  Text(
+                    alert.descripcion,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      height: 1.35,
+                      color: subtitleColor,
+                      fontWeight: FontWeight.w500,
                     ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        alert.grid!.nombre,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12.5,
-                          color: textColor,
+                  ),
+                  if (alert.rutaFoto != null &&
+                      alert.rutaFoto!.isNotEmpty &&
+                      alert.rutaFoto!.startsWith('http'))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Stack(
+                          children: [
+                            Image.network(
+                              alert.rutaFoto!,
+                              width: double.infinity,
+                              height: 158,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                height: 150,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? AppColors.borderDark
+                                      : AppColors.borderLight,
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  color: subtitleColor,
+                                ),
+                              ),
+                            ),
+                            Positioned.fill(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppColors.black.withValues(alpha: 0.00),
+                                      AppColors.black.withValues(alpha: 0.08),
+                                    ],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
+                  if (alert.grid?.nombre != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? borderColor.withValues(alpha: 0.30)
+                            : AppColors.backgroundLight,
+                        borderRadius: BorderRadius.circular(13),
+                        border: Border.all(
+                          color: borderColor.withValues(
+                            alpha: isDark ? 0.45 : 0.75,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                            color: statusColor,
+                          ),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              alert.grid!.nombre,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12.5,
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),

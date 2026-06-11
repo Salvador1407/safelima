@@ -3,22 +3,38 @@ import 'package:flutter/material.dart';
 class AppColors {
   // 🌞 TEMA CLARO — Inspirado en la seguridad, confianza y limpieza visual
   static const Color primary = Color(0xFF007BFF); // Azul institucional (base)
-  static const Color secundary = Color(0xFF4DB8FF); // Azul celeste (gradientes / botones)
-  static const Color accent = Color(0xFFFFC107); // Amarillo alerta / información
+  static const Color secundary = Color(
+    0xFF4DB8FF,
+  ); // Azul celeste (gradientes / botones)
+  static const Color accent = Color(
+    0xFFFFC107,
+  ); // Amarillo alerta / información
   static const Color backgroundLight = Color(0xFFF4F8FF); // Fondo general claro
-  static const Color cardLight = Color(0xFFFFFFFF); // Fondo de tarjetas / inputs
+  static const Color cardLight = Color(
+    0xFFFFFFFF,
+  ); // Fondo de tarjetas / inputs
   static const Color textLight = Color(0xFF1C2833); // Texto principal oscuro
   static const Color subtitleLight = Color(0xFF5D6D7E); // Texto secundario
   static const Color borderLight = Color(0xFFD6E4F0); // Bordes suaves
 
   // 🌙 TEMA OSCURO — Azul profundo con acentos contrastantes
-  static const Color primaryDark = Color(0xFF0D47A1); // Azul marino (barra / énfasis)
-  static const Color secondaryDark = Color(0xFF64B5F6); // Azul medio para resaltar botones
-  static const Color accentDark = Color(0xFFFFC107); // Amarillo mantiene visibilidad
+  static const Color primaryDark = Color(
+    0xFF0D47A1,
+  ); // Azul marino (barra / énfasis)
+  static const Color secondaryDark = Color(
+    0xFF64B5F6,
+  ); // Azul medio para resaltar botones
+  static const Color accentDark = Color(
+    0xFFFFC107,
+  ); // Amarillo mantiene visibilidad
   static const Color backgroundDark = Color(0xFF101820); // Fondo general oscuro
-  static const Color cardDark = Color(0xFF1E2A38); // Tarjetas / componentes oscuros
+  static const Color cardDark = Color(
+    0xFF1E2A38,
+  ); // Tarjetas / componentes oscuros
   static const Color textDark = Color(0xFFFDFEFE); // Texto claro
-  static const Color subtitleDark = Color(0xFFB0BEC5); // Texto secundario gris-azulado
+  static const Color subtitleDark = Color(
+    0xFFB0BEC5,
+  ); // Texto secundario gris-azulado
   static const Color borderDark = Color(0xFF2C3E50); // Bordes y divisores
 
   // 🧱 COLORES NEUTROS Y DE ESTADO

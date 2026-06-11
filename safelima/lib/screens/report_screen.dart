@@ -9,6 +9,11 @@ import 'package:safelima/core/app_data.dart';
 import 'package:safelima/models/grid.dart';
 import 'package:safelima/services/grid_service.dart';
 import 'package:safelima/services/user_alert_service.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_input_decoration.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
+import 'package:safelima/widgets/safe_shimmer.dart';
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
@@ -128,14 +133,11 @@ class _ReportScreenState extends State<ReportScreen> {
     required Color subtitleColor,
     required Color borderColor,
   }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : AppColors.danger.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.danger.withOpacity(0.45)),
-      ),
+    return SafeCard(
+      borderColor: AppColors.danger.withValues(alpha: 0.45),
+      backgroundColor: isDark
+          ? AppColors.cardDark
+          : AppColors.danger.withValues(alpha: 0.08),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -161,21 +163,11 @@ class _ReportScreenState extends State<ReportScreen> {
                     color: subtitleColor,
                   ),
                 ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
+                const SizedBox(height: 12),
+                SafeButton.danger(
                   onPressed: _reloadGrids,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: Text(
-                    "Actualizar zonas",
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.danger,
-                    side: const BorderSide(color: AppColors.danger),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+                  icon: Icons.refresh,
+                  label: "Actualizar zonas",
                 ),
               ],
             ),
@@ -198,12 +190,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
   void _showLoadZonesError() {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(_loadZonesErrorMessage),
-        backgroundColor: AppColors.danger,
-      ),
-    );
+    SafeSnackBar.showError(context, _loadZonesErrorMessage);
   }
 
   Future<void> _pickImage() async {
@@ -240,11 +227,9 @@ class _ReportScreenState extends State<ReportScreen> {
     }
 
     if (_selectedIncident == null || _selectedGridId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Selecciona un tipo de incidente y una zona"),
-          backgroundColor: AppColors.danger,
-        ),
+      SafeSnackBar.showError(
+        context,
+        "Selecciona un tipo de incidente y una zona",
       );
       return;
     }
@@ -268,12 +253,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("✅ Reporte enviado correctamente"),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      SafeSnackBar.showSuccess(context, "✅ Reporte enviado correctamente");
 
       setState(() {
         _selectedIncident = null;
@@ -287,12 +267,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
       debugPrint("Error técnico al enviar reporte: $e");
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("No tienes conexión a Internet"),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      SafeSnackBar.showError(context, "No tienes conexión a Internet");
     }
   }
 
@@ -329,34 +304,6 @@ class _ReportScreenState extends State<ReportScreen> {
 
   Color _borderColor(bool isDark) {
     return isDark ? AppColors.borderDark : AppColors.borderLight;
-  }
-
-  InputDecoration _inputDecoration({
-    required bool isDark,
-    required String hintText,
-  }) {
-    return InputDecoration(
-      hintText: hintText,
-      hintStyle: GoogleFonts.poppins(
-        color: _subtitleColor(isDark),
-        fontSize: 13,
-      ),
-      filled: true,
-      fillColor: _cardColor(isDark),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: _borderColor(isDark)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: _borderColor(isDark)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
-      ),
-    );
   }
 
   @override
@@ -397,13 +344,15 @@ class _ReportScreenState extends State<ReportScreen> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  initialValue: _selectedIncident,
+                  value: _selectedIncident,
                   dropdownColor: cardColor,
                   iconEnabledColor: textColor,
                   style: GoogleFonts.poppins(color: textColor, fontSize: 14),
-                  decoration: _inputDecoration(
-                    isDark: isDark,
+                  decoration: safeInputDecoration(
+                    context,
+                    labelText: "Tipo de Incidente",
                     hintText: "Seleccionar...",
+                    prefixIcon: Icons.warning_amber_rounded,
                   ),
                   hint: Text(
                     "Seleccionar...",
@@ -439,9 +388,12 @@ class _ReportScreenState extends State<ReportScreen> {
                 ),
                 const SizedBox(height: 8),
                 _isLoadingGrids
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 4),
+                        child: SafeShimmer(
+                          width: double.infinity,
+                          height: 58,
+                          borderRadius: 16,
                         ),
                       )
                     : _zonesUnavailable
@@ -452,16 +404,18 @@ class _ReportScreenState extends State<ReportScreen> {
                         borderColor: borderColor,
                       )
                     : DropdownButtonFormField<int>(
-                        initialValue: _selectedGridId,
+                        value: _selectedGridId,
                         dropdownColor: cardColor,
                         iconEnabledColor: textColor,
                         style: GoogleFonts.poppins(
                           color: textColor,
                           fontSize: 14,
                         ),
-                        decoration: _inputDecoration(
-                          isDark: isDark,
+                        decoration: safeInputDecoration(
+                          context,
+                          labelText: "Zona o Ubicación",
                           hintText: "Seleccionar zona...",
+                          prefixIcon: Icons.location_on_outlined,
                         ),
                         hint: Text(
                           "Seleccionar zona...",
@@ -500,9 +454,11 @@ class _ReportScreenState extends State<ReportScreen> {
                   controller: _descController,
                   maxLines: 3,
                   style: GoogleFonts.poppins(color: textColor, fontSize: 14),
-                  decoration: _inputDecoration(
-                    isDark: isDark,
+                  decoration: safeInputDecoration(
+                    context,
+                    labelText: "Descripción",
                     hintText: "Describe brevemente lo que ocurrió...",
+                    prefixIcon: Icons.description_outlined,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -517,33 +473,17 @@ class _ReportScreenState extends State<ReportScreen> {
                 ),
                 const SizedBox(height: 8),
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    ElevatedButton.icon(
+                    SafeButton.secondary(
                       onPressed: _pickImage,
-                      icon: const Icon(Icons.camera_alt),
-                      label: Text(
-                        "Seleccionar imagen",
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark
-                            ? AppColors.secondaryDark
-                            : AppColors.secundary,
-                        foregroundColor: AppColors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+                      icon: Icons.camera_alt,
+                      label: "Seleccionar imagen",
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 15),
                     if (_selectedImage != null)
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                         child: Image.file(
                           _selectedImage!,
                           width: 80,
@@ -555,21 +495,10 @@ class _ReportScreenState extends State<ReportScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                Container(
+                SafeCard(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.cardDark
-                        : AppColors.info.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark
-                          ? borderColor
-                          : AppColors.info.withOpacity(0.25),
-                    ),
+                    vertical: 8,
                   ),
                   child: Row(
                     children: [
@@ -598,27 +527,9 @@ class _ReportScreenState extends State<ReportScreen> {
 
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
+                  child: SafeButton.primary(
                     onPressed: _isLoadingGrids ? null : _sendReport,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isDark
-                          ? AppColors.primaryDark
-                          : AppColors.primary,
-                      foregroundColor: AppColors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: isDark ? 0 : 1,
-                    ),
-                    child: Text(
-                      "Enviar Reporte",
-                      style: GoogleFonts.poppins(
-                        color: AppColors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
+                    label: "Enviar Reporte",
                   ),
                 ),
 

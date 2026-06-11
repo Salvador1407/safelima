@@ -27,20 +27,19 @@ class Grid {
   }
 
   factory Grid.fromPrediction(Map<String, dynamic> json) {
-  return Grid(
-    id: (json['id'] ?? 0) as int,
-    nombre: json['nombre'] ?? '',
-    gridLatIdx: (json['grid_lat_idx'] is int)
-        ? json['grid_lat_idx']
-        : (json['grid_lat_idx'] ?? 0).toInt(),
-    gridLonIdx: (json['grid_lon_idx'] is int)
-        ? json['grid_lon_idx']
-        : (json['grid_lon_idx'] ?? 0).toInt(),
-    centroLat: (json['centro_lat'] ?? 0).toDouble(),
-    centroLon: (json['centro_lon'] ?? 0).toDouble(),
-  );
-}
-
+    return Grid(
+      id: (json['id'] ?? 0) as int,
+      nombre: json['nombre'] ?? '',
+      gridLatIdx: (json['grid_lat_idx'] is int)
+          ? json['grid_lat_idx']
+          : (json['grid_lat_idx'] ?? 0).toInt(),
+      gridLonIdx: (json['grid_lon_idx'] is int)
+          ? json['grid_lon_idx']
+          : (json['grid_lon_idx'] ?? 0).toInt(),
+      centroLat: (json['centro_lat'] ?? 0).toDouble(),
+      centroLon: (json['centro_lon'] ?? 0).toDouble(),
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {

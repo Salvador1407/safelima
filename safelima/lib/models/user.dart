@@ -1,4 +1,3 @@
-
 class User {
   final int id;
   final String nameuser;
@@ -15,7 +14,7 @@ class User {
   });
 
   //toma un JSON y conviértelo en un objeto Dart.
-//Puedo crear varios factorys para manejar diferentes tipos de JSON
+  //Puedo crear varios factorys para manejar diferentes tipos de JSON
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       nameuser: json['username'],
@@ -25,23 +24,19 @@ class User {
     );
   }
 
-    factory User.fromJsonLogin(Map<String, dynamic> json) {
+  factory User.fromJsonLogin(Map<String, dynamic> json) {
     return User(
       nameuser: json['username'],
       password: json['password'],
       id: json['id'],
     );
   }
-//Esto sirve cuando quieras guardar o enviar datos al servidor.
+  //Esto sirve cuando quieras guardar o enviar datos al servidor.
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'username': nameuser,
-      'enable': enable,
-      'role': role,
-    };
+    return {'id': id, 'username': nameuser, 'enable': enable, 'role': role};
   }
 }
+
 class Metricas {
   final int usuarios;
   final int conversaciones;

@@ -6,6 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/screens/login_screen_user.dart';
 import 'package:safelima/services/user_service.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_input_decoration.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   final String correo;
@@ -54,13 +58,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       if (!mounted) return;
 
       if (!connected) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("📵 No tienes conexión a internet"),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        SafeSnackBar.showError(context, "📵 No tienes conexión a internet");
         return;
       }
 
@@ -71,13 +69,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      SafeSnackBar.showSuccess(context, message);
 
       Navigator.pushAndRemoveUntil(
         context,
@@ -95,13 +87,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         errorMessage = "Código inválido o expirado.";
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("⚠️ $errorMessage"),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      SafeSnackBar.showError(context, "⚠️ $errorMessage");
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -121,9 +107,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     final bgColor = isDark
         ? AppColors.backgroundDark
         : AppColors.backgroundLight;
-    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
     final textColor = isDark ? AppColors.textDark : AppColors.white;
     final subtitleColor = isDark ? AppColors.subtitleDark : Colors.white70;
+    final inputTextColor = isDark ? AppColors.textDark : AppColors.textLight;
 
     return Scaffold(
       body: Container(
@@ -139,222 +125,155 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    Image.asset(
-                      "assets/images/SafeLima.png",
-                      height: 110,
-                      width: 110,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                children: [
+                  Image.asset(
+                    "assets/images/SafeLima.png",
+                    height: 110,
+                    width: 110,
+                  ),
+                  const SizedBox(height: 15),
+                  Text(
+                    "Nueva contraseña",
+                    style: GoogleFonts.poppins(
+                      color: textColor,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 15),
-                    Text(
-                      "Nueva contraseña",
-                      style: GoogleFonts.poppins(
-                        color: textColor,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Hemos enviado un código a:\n${widget.correo}",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      color: subtitleColor,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 35),
+                  SafeCard(
+                    borderRadius: 28,
+                    padding: const EdgeInsets.all(22),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _codigoController,
+                            keyboardType: TextInputType.number,
+                            style: GoogleFonts.poppins(color: inputTextColor),
+                            decoration: safeInputDecoration(
+                              context,
+                              labelText: "Código de verificación",
+                              prefixIcon: Icons.verified_user_outlined,
+                            ),
+                            validator: (value) {
+                              final codigo = value?.trim() ?? "";
+                              if (codigo.isEmpty) return "Ingrese el código";
+                              if (codigo.length < 6) return "Código inválido";
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _newPasswordController,
+                            obscureText: !_showPassword,
+                            style: GoogleFonts.poppins(color: inputTextColor),
+                            decoration: safeInputDecoration(
+                              context,
+                              labelText: "Nueva contraseña",
+                              prefixIcon: Icons.lock_outline,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _showPassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                  color: isDark
+                                      ? AppColors.subtitleDark
+                                      : AppColors.subtitleLight,
+                                ),
+                                onPressed: () {
+                                  setState(
+                                    () => _showPassword = !_showPassword,
+                                  );
+                                },
+                              ),
+                            ),
+                            validator: (value) {
+                              final pass = value?.trim() ?? "";
+                              if (pass.isEmpty) {
+                                return "Ingrese una nueva contraseña";
+                              }
+                              if (pass.length < 4) {
+                                return "Debe tener al menos 4 caracteres";
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            obscureText: !_showConfirmPassword,
+                            style: GoogleFonts.poppins(color: inputTextColor),
+                            decoration: safeInputDecoration(
+                              context,
+                              labelText: "Confirmar contraseña",
+                              prefixIcon: Icons.lock_reset_outlined,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _showConfirmPassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                  color: isDark
+                                      ? AppColors.subtitleDark
+                                      : AppColors.subtitleLight,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _showConfirmPassword =
+                                        !_showConfirmPassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: (value) {
+                              final confirm = value?.trim() ?? "";
+                              if (confirm.isEmpty) {
+                                return "Confirme la contraseña";
+                              }
+                              if (confirm !=
+                                  _newPasswordController.text.trim()) {
+                                return "Las contraseñas no coinciden";
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          SafeButton(
+                            label: "Actualizar contraseña",
+                            isLoading: _loading,
+                            fullWidth: true,
+                            onPressed: _resetPassword,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "Hemos enviado un código a:\n${widget.correo}",
-                      textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Text(
+                      "← Volver",
                       style: GoogleFonts.poppins(
                         color: subtitleColor,
+                        fontWeight: FontWeight.w500,
                         fontSize: 15,
+                        decoration: TextDecoration.underline,
                       ),
                     ),
-                    const SizedBox(height: 35),
-
-                    TextFormField(
-                      controller: _codigoController,
-                      keyboardType: TextInputType.number,
-                      style: GoogleFonts.poppins(
-                        color: isDark
-                            ? AppColors.textDark
-                            : AppColors.textLight,
-                      ),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: cardColor,
-                        hintText: "Código de verificación",
-                        hintStyle: GoogleFonts.poppins(
-                          color: isDark
-                              ? AppColors.subtitleDark
-                              : AppColors.subtitleLight,
-                        ),
-                        prefixIcon: Icon(
-                          Icons.verified_user_outlined,
-                          color: isDark ? AppColors.subtitleDark : Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      validator: (value) {
-                        final codigo = value?.trim() ?? "";
-                        if (codigo.isEmpty) return "Ingrese el código";
-                        if (codigo.length < 6) return "Código inválido";
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-
-                    TextFormField(
-                      controller: _newPasswordController,
-                      obscureText: !_showPassword,
-                      style: GoogleFonts.poppins(
-                        color: isDark
-                            ? AppColors.textDark
-                            : AppColors.textLight,
-                      ),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: cardColor,
-                        hintText: "Nueva contraseña",
-                        hintStyle: GoogleFonts.poppins(
-                          color: isDark
-                              ? AppColors.subtitleDark
-                              : AppColors.subtitleLight,
-                        ),
-                        prefixIcon: Icon(
-                          Icons.lock_outline,
-                          color: isDark ? AppColors.subtitleDark : Colors.grey,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _showPassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            color: isDark
-                                ? AppColors.subtitleDark
-                                : Colors.grey,
-                          ),
-                          onPressed: () {
-                            setState(() => _showPassword = !_showPassword);
-                          },
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      validator: (value) {
-                        final pass = value?.trim() ?? "";
-                        if (pass.isEmpty) return "Ingrese una nueva contraseña";
-                        if (pass.length < 4) {
-                          return "Debe tener al menos 4 caracteres";
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-
-                    TextFormField(
-                      controller: _confirmPasswordController,
-                      obscureText: !_showConfirmPassword,
-                      style: GoogleFonts.poppins(
-                        color: isDark
-                            ? AppColors.textDark
-                            : AppColors.textLight,
-                      ),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: cardColor,
-                        hintText: "Confirmar contraseña",
-                        hintStyle: GoogleFonts.poppins(
-                          color: isDark
-                              ? AppColors.subtitleDark
-                              : AppColors.subtitleLight,
-                        ),
-                        prefixIcon: Icon(
-                          Icons.lock_reset_outlined,
-                          color: isDark ? AppColors.subtitleDark : Colors.grey,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _showConfirmPassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            color: isDark
-                                ? AppColors.subtitleDark
-                                : Colors.grey,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _showConfirmPassword = !_showConfirmPassword;
-                            });
-                          },
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      validator: (value) {
-                        final confirm = value?.trim() ?? "";
-                        if (confirm.isEmpty) {
-                          return "Confirme la contraseña";
-                        }
-                        if (confirm != _newPasswordController.text.trim()) {
-                          return "Las contraseñas no coinciden";
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 25),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _loading ? null : _resetPassword,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark
-                              ? AppColors.primaryDark
-                              : AppColors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: _loading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: AppColors.primary,
-                                ),
-                              )
-                            : Text(
-                                "Actualizar contraseña",
-                                style: GoogleFonts.poppins(
-                                  color: isDark
-                                      ? AppColors.white
-                                      : AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 17,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Text(
-                        "← Volver",
-                        style: GoogleFonts.poppins(
-                          color: subtitleColor,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 15,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

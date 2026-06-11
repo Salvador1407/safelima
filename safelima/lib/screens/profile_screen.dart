@@ -1,16 +1,20 @@
-import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/theme/theme_notifier.dart';
 import 'package:safelima/models/citizen.dart';
 import 'package:safelima/services/citizen_service.dart';
+import 'package:safelima/services/connectivity_service.dart';
+import 'package:safelima/services/notification_settings_service.dart';
+import 'package:safelima/services/profile_cache_service.dart';
 import 'package:safelima/core/app_data.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_empty_state.dart';
+import 'package:safelima/widgets/safe_input_decoration.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,9 +25,14 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final CitizenService _citizenService = CitizenService();
+  final ConnectivityService _connectivityService = const ConnectivityService();
+  final NotificationSettingsService _notificationSettingsService =
+      NotificationSettingsService();
+  final ProfileCacheService _profileCacheService = ProfileCacheService();
   final _formKey = GlobalKey<FormState>();
 
   late Future<Citizen?> _futureCitizen;
+  Citizen? _currentCitizen;
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _correoController = TextEditingController();
@@ -31,9 +40,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const String _noProfileDataMessage = "No se encontraron datos";
   static const String _noInternetMessage = "No tienes conexión a internet";
 
-  bool notificationsEnabled = false;
+  bool notificationsEnabled = true;
   String _avatar = "😀";
   String _profileLoadMessage = "No se encontraron datos.";
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -42,122 +52,259 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _futureCitizen = _loadResult();
   }
 
-  Future<void> _loadLocalPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
-      _avatar = prefs.getString('selected_avatar') ?? "😀";
-    });
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _correoController.dispose();
+    super.dispose();
   }
 
-  Future<bool> _hasInternet() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult.contains(ConnectivityResult.none)) return false;
+  void _setControllersFromCitizen(Citizen citizen) {
+    _nameController.text = citizen.fullName ?? "";
+    _correoController.text = citizen.correo ?? "";
+  }
 
-    try {
-      final result = await InternetAddress.lookup(
-        'example.com',
-      ).timeout(const Duration(seconds: 3));
-      return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
-    } on SocketException {
-      return false;
-    } on TimeoutException {
-      return false;
-    }
+  Future<void> _loadLocalPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final notificationsEnabledValue = await _notificationSettingsService
+        .getNotificationsEnabled();
+    if (!mounted) return;
+
+    setState(() {
+      notificationsEnabled = notificationsEnabledValue;
+      _avatar = prefs.getString('selected_avatar') ?? "😀";
+    });
   }
 
   Future<Citizen?> _loadResult() async {
     try {
       final id = AppData.citizen_id;
-      final connected = await _hasInternet();
+      final connected = await _connectivityService.hasInternet();
 
       if (!connected) {
-        _nameController.clear();
-        _correoController.clear();
+        final cachedCitizen = await _profileCacheService.getProfile(id);
+        if (cachedCitizen != null) {
+          _currentCitizen = cachedCitizen;
+          if (mounted) {
+            _setControllersFromCitizen(cachedCitizen);
+          }
+          _profileLoadMessage = _noProfileDataMessage;
+          return cachedCitizen;
+        }
+
         _profileLoadMessage = _noProfileDataMessage;
         return null;
       }
 
+      final citizen = await _citizenService.getCitizenById(id);
+      await _profileCacheService.saveProfile(citizenId: id, citizen: citizen);
+      _currentCitizen = citizen;
+      if (mounted) {
+        _setControllersFromCitizen(citizen);
+      }
       _profileLoadMessage = _noProfileDataMessage;
-      return await _citizenService.getCitizenById(id);
+      return citizen;
     } catch (e) {
       debugPrint("Error al obtener ciudadano: $e");
-      _nameController.clear();
-      _correoController.clear();
+      final cachedCitizen = await _profileCacheService.getProfile(
+        AppData.citizen_id,
+      );
+      if (cachedCitizen != null) {
+        _currentCitizen = cachedCitizen;
+        _profileLoadMessage = _noProfileDataMessage;
+        return cachedCitizen;
+      }
+
       _profileLoadMessage = _noProfileDataMessage;
       return null;
     }
   }
 
   Future<void> _saveCitizenChanges() async {
-    try {
-      if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
 
-      final connected = await _hasInternet();
+    final id = AppData.citizen_id;
+    final newFullName = _nameController.text.trim();
+    final newCorreo = _correoController.text.trim();
+
+    setState(() => _isSaving = true);
+
+    try {
+      final connected = await _connectivityService.hasInternet();
       if (!mounted) return;
 
       if (!connected) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(_noInternetMessage),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        setState(() => _isSaving = false);
+        SafeSnackBar.showError(context, _noInternetMessage);
         return;
       }
 
-      final id = AppData.citizen_id;
-      final updatedData = {
-        "full_name": _nameController.text.trim(),
-        "correo": _correoController.text.trim(),
-      };
+      final updatedData = {"full_name": newFullName, "correo": newCorreo};
 
       await _citizenService.updateCitizen(id, updatedData);
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("✅ Perfil actualizado correctamente"),
-          backgroundColor: AppColors.secundary,
-        ),
+      final previousCitizen = _currentCitizen;
+      final updatedCitizen = Citizen(
+        id: id,
+        userId: previousCitizen?.userId,
+        fullName: newFullName,
+        correo: newCorreo,
+        user: previousCitizen?.user,
       );
+
+      await _profileCacheService.saveProfile(
+        citizenId: id,
+        citizen: updatedCitizen,
+      );
+
+      if (!mounted) return;
+
+      _setControllersFromCitizen(updatedCitizen);
+
+      setState(() {
+        _currentCitizen = updatedCitizen;
+        _futureCitizen = Future.value(updatedCitizen);
+        _isSaving = false;
+      });
+
+      SafeSnackBar.showSuccess(context, "Perfil actualizado correctamente");
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("No se pudo actualizar el perfil"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+
+      setState(() => _isSaving = false);
+      SafeSnackBar.showError(context, "No se pudo actualizar el perfil");
     }
   }
 
   Future<void> _toggleNotifications(bool value) async {
+    final previousValue = notificationsEnabled;
+    final connected = await _connectivityService.hasInternet();
+    if (!mounted) return;
+
+    if (!connected) {
+      setState(() => notificationsEnabled = previousValue);
+      SafeSnackBar.showError(context, _noInternetMessage);
+      return;
+    }
+
+    try {
+      await _notificationSettingsService.setNotificationsEnabled(value);
+      if (!mounted) return;
+
+      setState(() => notificationsEnabled = value);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => notificationsEnabled = previousValue);
+      SafeSnackBar.showError(
+        context,
+        "No se pudo actualizar el estado de las notificaciones",
+      );
+    }
+  }
+
+  Future<void> _toggleTheme(bool value) async {
+    final connected = await _connectivityService.hasInternet();
+    if (!mounted) return;
+
+    if (!connected) {
+      SafeSnackBar.showError(context, _noInternetMessage);
+      return;
+    }
+
+    context.read<ThemeNotifier>().toggleTheme(value);
+    SafeSnackBar.showInfo(
+      context,
+      value ? "Tema oscuro activado" : "Tema claro activado",
+    );
+  }
+
+  Future<void> _selectAvatar(String avatar) async {
+    final connected = await _connectivityService.hasInternet();
+    if (!mounted) return;
+
+    if (!connected) {
+      Navigator.pop(context);
+      SafeSnackBar.showError(context, _noInternetMessage);
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('notifications_enabled', value);
-    setState(() => notificationsEnabled = value);
+    await prefs.setString('selected_avatar', avatar);
+    if (!mounted) return;
+
+    setState(() => _avatar = avatar);
+    Navigator.pop(context);
   }
 
   void _showAvatarSelector() {
     final emojis = ["😀", "😎", "🤗", "🦊", "🐼", "🥰", "😴", "🥳"];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = _cardColor(isDark);
+    final borderColor = _borderColor(isDark);
+    final textColor = _textColor(isDark);
+    final accentColor = _accentColor(isDark);
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Selecciona tu avatar"),
+        backgroundColor: cardColor,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: borderColor.withValues(alpha: isDark ? 0.65 : 0.85),
+            width: 0.9,
+          ),
+        ),
+        title: Text(
+          "Selecciona tu avatar",
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            color: textColor,
+            letterSpacing: -0.15,
+          ),
+        ),
         content: Wrap(
-          spacing: 10,
-          runSpacing: 10,
+          spacing: 12,
+          runSpacing: 12,
+          alignment: WrapAlignment.center,
           children: emojis.map((e) {
+            final selected = e == _avatar;
+
             return GestureDetector(
               onTap: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('selected_avatar', e);
-                setState(() => _avatar = e);
-                Navigator.pop(context);
+                await _selectAvatar(e);
               },
-              child: CircleAvatar(
-                radius: 25,
-                child: Text(e, style: const TextStyle(fontSize: 26)),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                width: 56,
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? accentColor.withValues(alpha: isDark ? 0.18 : 0.12)
+                      : isDark
+                      ? AppColors.backgroundDark
+                      : AppColors.backgroundLight,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? accentColor : borderColor,
+                    width: selected ? 1.4 : 0.9,
+                  ),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: accentColor.withValues(alpha: 0.16),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ]
+                      : [],
+                ),
+                child: Text(e, style: const TextStyle(fontSize: 28)),
               ),
             );
           }).toList(),
@@ -166,22 +313,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Color _backgroundColor(bool isDark) {
+    return isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+  }
+
+  Color _cardColor(bool isDark) {
+    return isDark ? AppColors.cardDark : AppColors.cardLight;
+  }
+
+  Color _textColor(bool isDark) {
+    return isDark ? AppColors.textDark : AppColors.textLight;
+  }
+
+  Color _subtitleColor(bool isDark) {
+    return isDark ? AppColors.subtitleDark : AppColors.subtitleLight;
+  }
+
+  Color _borderColor(bool isDark) {
+    return isDark ? AppColors.borderDark : AppColors.borderLight;
+  }
+
+  Color _accentColor(bool isDark) {
+    return isDark ? AppColors.secondaryDark : AppColors.primary;
+  }
+
+  LinearGradient _appBarGradient(bool isDark) {
+    return isDark
+        ? const LinearGradient(
+            colors: [
+              AppColors.primaryDark,
+              Color(0xFF102A43),
+              AppColors.backgroundDark,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : const LinearGradient(
+            colors: [AppColors.primary, AppColors.secundary],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+  }
+
+  List<BoxShadow> _softShadow(bool isDark) {
+    return [
+      BoxShadow(
+        color: AppColors.black.withValues(alpha: isDark ? 0.24 : 0.08),
+        blurRadius: 18,
+        offset: const Offset(0, 8),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = GoogleFonts.poppinsTextTheme(theme.textTheme);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = _accentColor(isDark);
 
     return Scaffold(
+      backgroundColor: _backgroundColor(isDark),
       appBar: AppBar(
-        title: const Text("Perfil"),
-        centerTitle: true,
+        elevation: 0,
+        centerTitle: false,
+        backgroundColor: Colors.transparent,
+        foregroundColor: AppColors.white,
+        titleSpacing: 0,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secundary],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
+          decoration: BoxDecoration(
+            gradient: _appBarGradient(isDark),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.black.withValues(alpha: isDark ? 0.30 : 0.12),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+        ),
+        title: Text(
+          "Perfil",
+          style: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: AppColors.white,
+            letterSpacing: -0.2,
           ),
         ),
       ),
@@ -189,179 +404,341 @@ class _ProfileScreenState extends State<ProfileScreen> {
         future: _futureCitizen,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+              child: CircularProgressIndicator(color: primaryColor),
+            );
           }
 
           if (!snapshot.hasData) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.person_off_outlined,
-                      size: 64,
-                      color: AppColors.primaryDark,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _profileLoadMessage,
-                      textAlign: TextAlign.center,
-                      style: textTheme.titleMedium?.copyWith(
-                        color: AppColors.primaryDark,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                child: SafeEmptyState(
+                  icon: Icons.person_off_outlined,
+                  title: _profileLoadMessage,
                 ),
               ),
             );
           }
 
-          final citizen = snapshot.data!;
-          _nameController.text = citizen.fullName ?? "";
-          _correoController.text = citizen.correo ?? "";
+          final citizen = _currentCitizen ?? snapshot.data!;
 
           return Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
               children: [
-                // 🧍 Avatar
-                Center(
-                  child: Column(
-                    children: [
-                      GestureDetector(
-                        onTap: _showAvatarSelector,
-                        child: CircleAvatar(
-                          radius: 45,
-                          backgroundColor: AppColors.secundary.withOpacity(0.2),
-                          child: Text(
-                            _avatar,
-                            style: const TextStyle(fontSize: 40),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        citizen.fullName ?? "Usuario SafeLima",
-                        style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryDark,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
-
-                // 👤 Nombre completo
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: "Nombre completo",
-                    prefixIcon: const Icon(Icons.person_outline),
-                    filled: true,
-                    fillColor: theme.cardColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      borderSide: const BorderSide(color: AppColors.primary),
-                    ),
-                  ),
-                  validator: (value) {
-                    final name = value?.trim() ?? "";
-                    if (name.length < 2 || name.length > 50) {
-                      return "El nombre debe tener entre 2 y 50 caracteres";
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 20),
-
-                // ✉️ Correo
-                TextFormField(
-                  controller: _correoController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: "Correo electrónico",
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    filled: true,
-                    fillColor: theme.cardColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      borderSide: const BorderSide(color: AppColors.primary),
-                    ),
-                  ),
-                  validator: (value) {
-                    final email = value?.trim() ?? "";
-                    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
-                    if (!emailRegex.hasMatch(email)) {
-                      return "Ingrese un correo válido";
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 20),
-
-                // 🔔 Notificaciones
-                SwitchListTile(
-                  title: const Text("Recibir notificaciones"),
-                  secondary: const Icon(Icons.notifications_active_outlined),
-                  value: notificationsEnabled,
-                  activeThumbColor: AppColors.secundary,
-                  onChanged: _toggleNotifications,
-                ),
-
-                // 🌙 Tema oscuro
-                SwitchListTile(
-                  title: const Text("Tema oscuro"),
-                  secondary: const Icon(Icons.dark_mode_outlined),
-                  value: context.watch<ThemeNotifier>().isDarkMode,
-                  activeThumbColor: AppColors.secundary,
-                  onChanged: (val) {
-                    context.read<ThemeNotifier>().toggleTheme(val);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          val
-                              ? "🌙 Tema oscuro activado"
-                              : "☀️ Tema claro activado",
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        backgroundColor: val
-                            ? Colors.blueGrey
-                            : AppColors.primary,
-                      ),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 25),
-
-                // 💾 Guardar
-                ElevatedButton.icon(
-                  onPressed: _saveCitizenChanges,
-                  icon: const Icon(Icons.save, color: Colors.white),
-                  label: const Text(
-                    "Guardar cambios",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secundary,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                  ),
+                _buildAvatarCard(citizen, isDark),
+                const SizedBox(height: 18),
+                _buildFormCard(isDark),
+                const SizedBox(height: 18),
+                _buildSettingsCard(isDark),
+                const SizedBox(height: 24),
+                SafeButton.secondary(
+                  onPressed: _isSaving ? null : _saveCitizenChanges,
+                  isLoading: _isSaving,
+                  icon: Icons.save_rounded,
+                  label: "Guardar cambios",
+                  fullWidth: true,
                 ),
               ],
             ),
           );
         },
       ),
+    );
+  }
+
+  Widget _buildAvatarCard(Citizen citizen, bool isDark) {
+    final textColor = _textColor(isDark);
+    final subtitleColor = _subtitleColor(isDark);
+    final borderColor = _borderColor(isDark);
+    final cardColor = _cardColor(isDark);
+    final accentColor = _accentColor(isDark);
+    final displayEmail = citizen.correo?.trim().isNotEmpty == true
+        ? citizen.correo!.trim()
+        : "Sin correo registrado";
+    final displayName = citizen.fullName?.trim().isNotEmpty == true
+        ? citizen.fullName!.trim()
+        : "Sin nombre registrado";
+
+    return SafeCard(
+      padding: EdgeInsets.zero,
+      backgroundColor: cardColor,
+      borderColor: borderColor.withValues(alpha: isDark ? 0.55 : 0.85),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -54,
+              right: -42,
+              child: Container(
+                width: 142,
+                height: 142,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: accentColor.withValues(alpha: isDark ? 0.10 : 0.07),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -100,
+              left: -44,
+              child: Container(
+                width: 118,
+                height: 118,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.accent.withValues(
+                    alpha: isDark ? 0.08 : 0.06,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+              child: Column(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 112,
+                        height: 112,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              accentColor.withValues(
+                                alpha: isDark ? 0.22 : 0.14,
+                              ),
+                              AppColors.accent.withValues(
+                                alpha: isDark ? 0.11 : 0.08,
+                              ),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: borderColor.withValues(
+                              alpha: isDark ? 0.65 : 0.85,
+                            ),
+                            width: 1.4,
+                          ),
+                          boxShadow: _softShadow(isDark),
+                        ),
+                        child: Text(
+                          _avatar,
+                          style: const TextStyle(fontSize: 56),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 2,
+                        right: 2,
+                        child: GestureDetector(
+                          onTap: _showAvatarSelector,
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: accentColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: cardColor, width: 2.2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.black.withValues(
+                                    alpha: 0.16,
+                                  ),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.edit_rounded,
+                              color: AppColors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
+                      letterSpacing: -0.15,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    displayEmail,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12.5,
+                      color: subtitleColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormCard(bool isDark) {
+    final cardColor = _cardColor(isDark);
+    final borderColor = _borderColor(isDark);
+    final textColor = _textColor(isDark);
+    final accentColor = _accentColor(isDark);
+
+    return SafeCard(
+      padding: EdgeInsets.zero,
+      backgroundColor: cardColor,
+      borderColor: borderColor.withValues(alpha: isDark ? 0.55 : 0.85),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            children: [
+              TextFormField(
+                controller: _nameController,
+                enabled: !_isSaving,
+                style: GoogleFonts.poppins(
+                  color: textColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                cursorColor: accentColor,
+                decoration: safeInputDecoration(
+                  context,
+                  labelText: "Nombre completo",
+                  prefixIcon: Icons.person_outline_rounded,
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return "Ingrese su nombre completo";
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 18),
+              TextFormField(
+                controller: _correoController,
+                enabled: !_isSaving,
+                keyboardType: TextInputType.emailAddress,
+                style: GoogleFonts.poppins(
+                  color: textColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                cursorColor: accentColor,
+                decoration: safeInputDecoration(
+                  context,
+                  labelText: "Correo electrónico",
+                  prefixIcon: Icons.email_outlined,
+                ),
+                validator: (value) {
+                  final email = value?.trim() ?? "";
+                  final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+                  if (!emailRegex.hasMatch(email)) {
+                    return "Ingrese un correo válido";
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsCard(bool isDark) {
+    final cardColor = _cardColor(isDark);
+    final borderColor = _borderColor(isDark);
+
+    return SafeCard(
+      padding: EdgeInsets.zero,
+      backgroundColor: cardColor,
+      borderColor: borderColor.withValues(alpha: isDark ? 0.55 : 0.85),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          children: [
+            _buildSwitchTile(
+              isDark: isDark,
+              icon: Icons.notifications_active_outlined,
+              title: "Recibir notificaciones",
+              value: notificationsEnabled,
+              onChanged: _toggleNotifications,
+            ),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: borderColor.withValues(alpha: isDark ? 0.40 : 0.65),
+            ),
+            _buildSwitchTile(
+              isDark: isDark,
+              icon: Icons.dark_mode_outlined,
+              title: "Tema oscuro",
+              value: context.watch<ThemeNotifier>().isDarkMode,
+              onChanged: _toggleTheme,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwitchTile({
+    required bool isDark,
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final textColor = _textColor(isDark);
+    final subtitleColor = _subtitleColor(isDark);
+    final accentColor = _accentColor(isDark);
+
+    return SwitchListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      title: Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontWeight: FontWeight.w700,
+          fontSize: 15,
+          color: textColor,
+        ),
+      ),
+      secondary: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: accentColor.withValues(alpha: isDark ? 0.16 : 0.10),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Icon(icon, color: value ? accentColor : subtitleColor, size: 22),
+      ),
+      value: value,
+      activeThumbColor: accentColor,
+      activeTrackColor: accentColor.withValues(alpha: 0.3),
+      onChanged: onChanged,
     );
   }
 }

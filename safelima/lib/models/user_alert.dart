@@ -43,7 +43,7 @@ class UserAlert {
     );
   }
 
-    factory UserAlert.fromJsonCitizenAlerts(Map<String, dynamic> json) {
+  factory UserAlert.fromJsonCitizenAlerts(Map<String, dynamic> json) {
     return UserAlert(
       id: json['id'],
       grid: json['grid'] != null ? Grid.fromJson(json['grid']) : null,
@@ -76,15 +76,9 @@ class GridInfo {
   final int id;
   final String nombre;
 
-  GridInfo({
-    required this.id,
-    required this.nombre,
-  });
+  GridInfo({required this.id, required this.nombre});
 
   factory GridInfo.fromJson(Map<String, dynamic> json) {
-    return GridInfo(
-      id: json['id'],
-      nombre: json['nombre'],
-    );
+    return GridInfo(id: json['id'], nombre: json['nombre']);
   }
 }

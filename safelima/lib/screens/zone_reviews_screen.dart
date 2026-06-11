@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:safelima/core/app_colors.dart';
@@ -11,6 +10,11 @@ import 'package:safelima/models/zone_review.dart';
 import 'package:safelima/screens/create_zone_review_screen.dart';
 import 'package:safelima/services/zone_review_service.dart';
 import 'package:safelima/services/review_like_service.dart';
+import 'package:safelima/widgets/safe_card.dart';
+import 'package:safelima/widgets/safe_empty_state.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
+import 'package:safelima/widgets/safe_status_chip.dart';
+import 'package:safelima/widgets/safe_shimmer.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ZoneReviewsScreen extends StatefulWidget {
@@ -106,12 +110,7 @@ class _ZoneReviewsScreenState extends State<ZoneReviewsScreen> {
   void _showLikeError() {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(_likeErrorMessage),
-        backgroundColor: AppColors.danger,
-      ),
-    );
+    SafeSnackBar.showError(context, _likeErrorMessage);
   }
 
   Future<void> _toggleLike(int reviewId) async {
@@ -204,60 +203,20 @@ class _ZoneReviewsScreenState extends State<ZoneReviewsScreen> {
   }
 
   Widget _stateCard({
-    required bool isDark,
     required IconData icon,
     required Color iconColor,
     required String title,
     required String message,
-    Widget? action,
+    String? actionLabel,
+    VoidCallback? onAction,
   }) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: _cardColor(isDark),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: _borderColor(isDark)),
-            boxShadow: _softShadow(isDark),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: iconColor, size: 36),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: _textColor(isDark),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  height: 1.4,
-                  color: _subtitleColor(isDark),
-                ),
-              ),
-              if (action != null) ...[const SizedBox(height: 16), action],
-            ],
-          ),
-        ),
-      ),
+    return SafeEmptyState(
+      icon: icon,
+      iconColor: iconColor,
+      title: title,
+      message: message,
+      actionLabel: actionLabel,
+      onAction: onAction,
     );
   }
 
@@ -388,15 +347,10 @@ class _ZoneReviewsScreenState extends State<ZoneReviewsScreen> {
             'dd/MM/yyyy HH:mm',
           ).format(review.fechaPublicacion!.toLocal());
 
-    return Container(
+    return SafeCard(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _cardColor(isDark),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _borderColor(isDark)),
-        boxShadow: _softShadow(isDark),
-      ),
+      borderRadius: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -452,15 +406,12 @@ class _ZoneReviewsScreenState extends State<ZoneReviewsScreen> {
               InkWell(
                 onTap: () => _toggleLike(reviewId),
                 borderRadius: BorderRadius.circular(999),
-                child: _metaChip(
+                child: SafeStatusChip(
                   icon: isLikedLocal ? Icons.favorite : Icons.favorite_border,
                   label: "$likesCountLocal",
-                  foreground: isLikedLocal
-                      ? Colors.red
-                      : _subtitleColor(isDark),
-                  background: isLikedLocal
-                      ? Colors.red.withValues(alpha: 0.10)
-                      : _borderColor(isDark).withValues(alpha: 0.34),
+                  tone: isLikedLocal
+                      ? SafeStatusTone.danger
+                      : SafeStatusTone.neutral,
                 ),
               ),
               const Spacer(),
@@ -531,31 +482,29 @@ class _ZoneReviewsScreenState extends State<ZoneReviewsScreen> {
           // Estado de carga inicial
           if (snapshot.connectionState == ConnectionState.waiting &&
               !_likedReviews.isNotEmpty) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: 4,
+              itemBuilder: (context, index) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: SafeShimmer(
+                  width: double.infinity,
+                  height: 120,
+                  borderRadius: 18,
+                ),
+              ),
             );
           }
 
           // Manejo de errores
           if (snapshot.hasError) {
             return _stateCard(
-              isDark: isDark,
               icon: Icons.error_outline,
               iconColor: AppColors.danger,
               title: "Error al cargar reseñas",
               message: "No se pudo obtener la información de esta zona.",
-              action: ElevatedButton.icon(
-                onPressed: _reloadReviews,
-                icon: const Icon(Icons.refresh),
-                label: const Text("Reintentar"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.danger,
-                  foregroundColor: AppColors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
+              actionLabel: "Reintentar",
+              onAction: _reloadReviews,
             );
           }
 
@@ -567,7 +516,6 @@ class _ZoneReviewsScreenState extends State<ZoneReviewsScreen> {
                 children: [
                   SizedBox(height: MediaQuery.of(context).size.height * 0.3),
                   _stateCard(
-                    isDark: isDark,
                     icon: Icons.forum_outlined,
                     iconColor: AppColors.primary,
                     title: "Aún no hay reseñas",

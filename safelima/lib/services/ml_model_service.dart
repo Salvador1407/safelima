@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 import '../models/ml_model.dart';
 
 class MlModelService {
-  final String baseUrl = "http://192.168.0.7:8080/models";
+  final String baseUrl =
+      "https://safelima-backend-1010928585686.us-central1.run.app/models";
 
   Future<void> createModel(Map<String, dynamic> body) async {
     final response = await http.post(

@@ -8,6 +8,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/models/user_alert.dart';
 import 'package:safelima/services/user_alert_service.dart';
+import 'package:safelima/widgets/safe_buttons.dart';
+import 'package:safelima/widgets/safe_input_decoration.dart';
+import 'package:safelima/widgets/safe_snack_bar.dart';
 
 class EditReportScreen extends StatefulWidget {
   final UserAlert alert;
@@ -57,8 +60,6 @@ class _EditReportScreenState extends State<EditReportScreen> {
     "Riña entre grupos": "rina",
   };
 
-  final List<String> _riskLevels = const ["bajo", "medio", "alto"];
-
   @override
   void initState() {
     super.initState();
@@ -102,7 +103,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 80, // Mantenemos la calidad para ahorrar espacio en GCS
+      imageQuality: 80,
     );
 
     if (pickedFile != null) {
@@ -130,46 +131,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
 
   void _showUpdateReportError() {
     if (!mounted) return;
-
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text(_updateReportErrorMessage),
-        backgroundColor: AppColors.danger,
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required bool isDark,
-    required String labelText,
-  }) {
-    return InputDecoration(
-      labelText: labelText,
-      labelStyle: GoogleFonts.poppins(
-        color: isDark ? AppColors.subtitleDark : AppColors.subtitleLight,
-      ),
-      filled: true,
-      fillColor: isDark ? AppColors.cardDark : AppColors.cardLight,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: isDark ? AppColors.borderDark : AppColors.borderLight,
-        ),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: isDark ? AppColors.borderDark : AppColors.borderLight,
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
-      ),
-    );
+    SafeSnackBar.showError(context, _updateReportErrorMessage);
   }
 
   Future<void> _updateReport() async {
@@ -185,12 +147,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
 
     final incidentCode = _incidentMap[_selectedIncidentLabel];
     if (incidentCode == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Selecciona un tipo de incidente válido"),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      SafeSnackBar.showError(context, "Selecciona un tipo de incidente válido");
       return;
     }
 
@@ -211,12 +168,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
       );
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Reporte actualizado correctamente"),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      SafeSnackBar.showSuccess(context, "Reporte actualizado correctamente");
 
       Navigator.pop(context, true);
     } catch (_) {
@@ -269,9 +221,10 @@ class _EditReportScreenState extends State<EditReportScreen> {
               TextFormField(
                 controller: _tituloController,
                 style: GoogleFonts.poppins(color: textColor, fontSize: 14),
-                decoration: _inputDecoration(
-                  isDark: isDark,
+                decoration: safeInputDecoration(
+                  context,
                   labelText: "Título",
+                  hintText: "Título de la alerta",
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -283,12 +236,13 @@ class _EditReportScreenState extends State<EditReportScreen> {
               const SizedBox(height: 16),
 
               DropdownButtonFormField<String>(
-                initialValue: _selectedIncidentLabel,
+                value: _selectedIncidentLabel,
                 dropdownColor: cardColor,
                 style: GoogleFonts.poppins(color: textColor, fontSize: 14),
-                decoration: _inputDecoration(
-                  isDark: isDark,
+                decoration: safeInputDecoration(
+                  context,
                   labelText: "Tipo de incidente",
+                  hintText: "Selecciona el incidente",
                 ),
                 items: _incidentTypes
                     .map(
@@ -320,9 +274,10 @@ class _EditReportScreenState extends State<EditReportScreen> {
                 controller: _descripcionController,
                 maxLines: 4,
                 style: GoogleFonts.poppins(color: textColor, fontSize: 14),
-                decoration: _inputDecoration(
-                  isDark: isDark,
+                decoration: safeInputDecoration(
+                  context,
                   labelText: "Descripción",
+                  hintText: "Describe detalladamente lo ocurrido",
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -343,24 +298,19 @@ class _EditReportScreenState extends State<EditReportScreen> {
               ),
               const SizedBox(height: 8),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  ElevatedButton.icon(
+                  SafeButton.secondary(
                     onPressed: _pickImage,
-                    icon: const Icon(Icons.image_search),
-                    label: Text(
-                      _newImage == null ? "Cambiar foto" : "Foto seleccionada",
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isDark
-                          ? AppColors.secondaryDark
-                          : AppColors.secundary,
-                      foregroundColor: AppColors.white,
-                    ),
+                    icon: Icons.image_search,
+                    label: _newImage == null
+                        ? "Cambiar foto"
+                        : "Foto seleccionada",
                   ),
                   const SizedBox(width: 15),
                   if (_newImage != null)
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                       child: Image.file(
                         _newImage!,
                         width: 60,
@@ -371,7 +321,7 @@ class _EditReportScreenState extends State<EditReportScreen> {
                   else if (widget.alert.rutaFoto != null &&
                       widget.alert.rutaFoto!.startsWith('http'))
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                       child: Image.network(
                         widget.alert.rutaFoto!,
                         width: 60,
@@ -385,34 +335,10 @@ class _EditReportScreenState extends State<EditReportScreen> {
 
               SizedBox(
                 width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
+                child: SafeButton.primary(
                   onPressed: _isSaving ? null : _updateReport,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark
-                        ? AppColors.primaryDark
-                        : AppColors.primary,
-                    foregroundColor: AppColors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isSaving
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: AppColors.white,
-                          ),
-                        )
-                      : Text(
-                          "Guardar cambios",
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
+                  label: "Guardar cambios",
+                  isLoading: _isSaving,
                 ),
               ),
             ],

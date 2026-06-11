@@ -3,7 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:safelima/models/admin_metrics_model.dart';
 
 class AdminMetricsService {
-  final String baseUrl = "http://192.168.0.7:8080/alerts";
+  final String baseUrl =
+      "https://safelima-backend-1010928585686.us-central1.run.app/alerts";
 
   Future<AdminMetricsModel> getMetrics() async {
     final response = await http.get(
