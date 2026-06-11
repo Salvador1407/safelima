@@ -1,15 +1,14 @@
-import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/theme/theme_notifier.dart';
 import 'package:safelima/models/citizen.dart';
 import 'package:safelima/services/citizen_service.dart';
+import 'package:safelima/services/connectivity_service.dart';
+import 'package:safelima/services/notification_settings_service.dart';
+import 'package:safelima/services/profile_cache_service.dart';
 import 'package:safelima/core/app_data.dart';
 import 'package:safelima/widgets/safe_buttons.dart';
 import 'package:safelima/widgets/safe_card.dart';
@@ -26,9 +25,14 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final CitizenService _citizenService = CitizenService();
+  final ConnectivityService _connectivityService = const ConnectivityService();
+  final NotificationSettingsService _notificationSettingsService =
+      NotificationSettingsService();
+  final ProfileCacheService _profileCacheService = ProfileCacheService();
   final _formKey = GlobalKey<FormState>();
 
   late Future<Citizen?> _futureCitizen;
+  Citizen? _currentCitizen;
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _correoController = TextEditingController();
@@ -36,7 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const String _noProfileDataMessage = "No se encontraron datos";
   static const String _noInternetMessage = "No tienes conexión a internet";
 
-  bool notificationsEnabled = false;
+  bool notificationsEnabled = true;
   String _avatar = "😀";
   String _profileLoadMessage = "No se encontraron datos.";
   bool _isSaving = false;
@@ -55,62 +59,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  void _setControllersFromCitizen(Citizen citizen) {
+    _nameController.text = citizen.fullName ?? "";
+    _correoController.text = citizen.correo ?? "";
+  }
+
   Future<void> _loadLocalPreferences() async {
     final prefs = await SharedPreferences.getInstance();
+    final notificationsEnabledValue = await _notificationSettingsService
+        .getNotificationsEnabled();
     if (!mounted) return;
 
     setState(() {
-      notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
+      notificationsEnabled = notificationsEnabledValue;
       _avatar = prefs.getString('selected_avatar') ?? "😀";
     });
-  }
-
-  Future<bool> _hasInternet() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult.contains(ConnectivityResult.none)) return false;
-
-    try {
-      final result = await InternetAddress.lookup(
-        'example.com',
-      ).timeout(const Duration(seconds: 3));
-      return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
-    } on SocketException {
-      return false;
-    } on TimeoutException {
-      return false;
-    }
   }
 
   Future<Citizen?> _loadResult() async {
     try {
       final id = AppData.citizen_id;
-      final connected = await _hasInternet();
+      final connected = await _connectivityService.hasInternet();
 
       if (!connected) {
-        _nameController.clear();
-        _correoController.clear();
+        final cachedCitizen = await _profileCacheService.getProfile(id);
+        if (cachedCitizen != null) {
+          _currentCitizen = cachedCitizen;
+          if (mounted) {
+            _setControllersFromCitizen(cachedCitizen);
+          }
+          _profileLoadMessage = _noProfileDataMessage;
+          return cachedCitizen;
+        }
+
         _profileLoadMessage = _noProfileDataMessage;
         return null;
       }
 
+      final citizen = await _citizenService.getCitizenById(id);
+      await _profileCacheService.saveProfile(citizenId: id, citizen: citizen);
+      _currentCitizen = citizen;
+      if (mounted) {
+        _setControllersFromCitizen(citizen);
+      }
       _profileLoadMessage = _noProfileDataMessage;
-      return await _citizenService.getCitizenById(id);
+      return citizen;
     } catch (e) {
       debugPrint("Error al obtener ciudadano: $e");
-      _nameController.clear();
-      _correoController.clear();
+      final cachedCitizen = await _profileCacheService.getProfile(
+        AppData.citizen_id,
+      );
+      if (cachedCitizen != null) {
+        _currentCitizen = cachedCitizen;
+        _profileLoadMessage = _noProfileDataMessage;
+        return cachedCitizen;
+      }
+
       _profileLoadMessage = _noProfileDataMessage;
       return null;
     }
   }
 
   Future<void> _saveCitizenChanges() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final id = AppData.citizen_id;
+    final newFullName = _nameController.text.trim();
+    final newCorreo = _correoController.text.trim();
+
+    setState(() => _isSaving = true);
+
     try {
-      if (!_formKey.currentState!.validate()) return;
-
-      setState(() => _isSaving = true);
-
-      final connected = await _hasInternet();
+      final connected = await _connectivityService.hasInternet();
       if (!mounted) return;
 
       if (!connected) {
@@ -119,17 +139,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      final id = AppData.citizen_id;
-      final updatedData = {
-        "full_name": _nameController.text.trim(),
-        "correo": _correoController.text.trim(),
-      };
+      final updatedData = {"full_name": newFullName, "correo": newCorreo};
 
       await _citizenService.updateCitizen(id, updatedData);
 
+      final previousCitizen = _currentCitizen;
+      final updatedCitizen = Citizen(
+        id: id,
+        userId: previousCitizen?.userId,
+        fullName: newFullName,
+        correo: newCorreo,
+        user: previousCitizen?.user,
+      );
+
+      await _profileCacheService.saveProfile(
+        citizenId: id,
+        citizen: updatedCitizen,
+      );
+
       if (!mounted) return;
 
-      setState(() => _isSaving = false);
+      _setControllersFromCitizen(updatedCitizen);
+
+      setState(() {
+        _currentCitizen = updatedCitizen;
+        _futureCitizen = Future.value(updatedCitizen);
+        _isSaving = false;
+      });
+
       SafeSnackBar.showSuccess(context, "Perfil actualizado correctamente");
     } catch (e) {
       if (!mounted) return;
@@ -140,11 +177,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _toggleNotifications(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('notifications_enabled', value);
+    final previousValue = notificationsEnabled;
+    final connected = await _connectivityService.hasInternet();
     if (!mounted) return;
 
-    setState(() => notificationsEnabled = value);
+    if (!connected) {
+      setState(() => notificationsEnabled = previousValue);
+      SafeSnackBar.showError(context, _noInternetMessage);
+      return;
+    }
+
+    try {
+      await _notificationSettingsService.setNotificationsEnabled(value);
+      if (!mounted) return;
+
+      setState(() => notificationsEnabled = value);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => notificationsEnabled = previousValue);
+      SafeSnackBar.showError(
+        context,
+        "No se pudo actualizar el estado de las notificaciones",
+      );
+    }
+  }
+
+  Future<void> _toggleTheme(bool value) async {
+    final connected = await _connectivityService.hasInternet();
+    if (!mounted) return;
+
+    if (!connected) {
+      SafeSnackBar.showError(context, _noInternetMessage);
+      return;
+    }
+
+    context.read<ThemeNotifier>().toggleTheme(value);
+    SafeSnackBar.showInfo(
+      context,
+      value ? "Tema oscuro activado" : "Tema claro activado",
+    );
+  }
+
+  Future<void> _selectAvatar(String avatar) async {
+    final connected = await _connectivityService.hasInternet();
+    if (!mounted) return;
+
+    if (!connected) {
+      Navigator.pop(context);
+      SafeSnackBar.showError(context, _noInternetMessage);
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_avatar', avatar);
+    if (!mounted) return;
+
+    setState(() => _avatar = avatar);
+    Navigator.pop(context);
   }
 
   void _showAvatarSelector() {
@@ -185,11 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             return GestureDetector(
               onTap: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('selected_avatar', e);
-                if (!mounted) return;
-                setState(() => _avatar = e);
-                Navigator.pop(context);
+                await _selectAvatar(e);
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
@@ -201,8 +287,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   color: selected
                       ? accentColor.withValues(alpha: isDark ? 0.18 : 0.12)
                       : isDark
-                          ? AppColors.backgroundDark
-                          : AppColors.backgroundLight,
+                      ? AppColors.backgroundDark
+                      : AppColors.backgroundLight,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: selected ? accentColor : borderColor,
@@ -263,10 +349,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             end: Alignment.bottomRight,
           )
         : const LinearGradient(
-            colors: [
-              AppColors.primary,
-              AppColors.secundary,
-            ],
+            colors: [AppColors.primary, AppColors.secundary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           );
@@ -338,9 +421,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
           }
 
-          final citizen = snapshot.data!;
-          _nameController.text = citizen.fullName ?? "";
-          _correoController.text = citizen.correo ?? "";
+          final citizen = _currentCitizen ?? snapshot.data!;
 
           return Form(
             key: _formKey,
@@ -375,6 +456,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final borderColor = _borderColor(isDark);
     final cardColor = _cardColor(isDark);
     final accentColor = _accentColor(isDark);
+    final displayEmail = citizen.correo?.trim().isNotEmpty == true
+        ? citizen.correo!.trim()
+        : "Sin correo registrado";
+    final displayName = citizen.fullName?.trim().isNotEmpty == true
+        ? citizen.fullName!.trim()
+        : "Sin nombre registrado";
 
     return SafeCard(
       padding: EdgeInsets.zero,
@@ -459,13 +546,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             decoration: BoxDecoration(
                               color: accentColor,
                               shape: BoxShape.circle,
-                              border: Border.all(
-                                color: cardColor,
-                                width: 2.2,
-                              ),
+                              border: Border.all(color: cardColor, width: 2.2),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.black.withValues(alpha: 0.16),
+                                  color: AppColors.black.withValues(
+                                    alpha: 0.16,
+                                  ),
                                   blurRadius: 10,
                                   offset: const Offset(0, 5),
                                 ),
@@ -483,7 +569,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 15),
                   Text(
-                    citizen.fullName!,
+                    displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
@@ -495,9 +581,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _correoController.text.trim().isEmpty
-                        ? "Sin correo registrado"
-                        : _correoController.text.trim(),
+                    displayEmail,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
@@ -613,13 +697,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: Icons.dark_mode_outlined,
               title: "Tema oscuro",
               value: context.watch<ThemeNotifier>().isDarkMode,
-              onChanged: (val) {
-                context.read<ThemeNotifier>().toggleTheme(val);
-                SafeSnackBar.showInfo(
-                  context,
-                  val ? "Tema oscuro activado" : "Tema claro activado",
-                );
-              },
+              onChanged: _toggleTheme,
             ),
           ],
         ),
@@ -655,11 +733,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: accentColor.withValues(alpha: isDark ? 0.16 : 0.10),
           borderRadius: BorderRadius.circular(15),
         ),
-        child: Icon(
-          icon,
-          color: value ? accentColor : subtitleColor,
-          size: 22,
-        ),
+        child: Icon(icon, color: value ? accentColor : subtitleColor, size: 22),
       ),
       value: value,
       activeThumbColor: accentColor,

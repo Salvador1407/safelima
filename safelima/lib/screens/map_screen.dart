@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +18,7 @@ import 'package:safelima/services/prediction_grid_service.dart';
 import 'package:safelima/screens/zone_reviews_screen.dart';
 import 'dart:math' as math;
 import 'package:safelima/services/app_notification_service.dart';
+import 'package:safelima/services/connectivity_service.dart';
 import 'package:safelima/services/notification_settings_service.dart';
 import 'package:safelima/models/policestations.dart';
 import 'package:safelima/services/police_station_service.dart';
@@ -52,6 +52,9 @@ class _MapScreenState extends State<MapScreen> {
   bool _loading = true;
   bool _showSuggestions = false;
   bool _securityLayerUnavailable = false;
+  bool _isConnected = true;
+  bool _connectionLossNoticeShown = false;
+  bool _handlingConnectivityChange = false;
 
   static const String _securityLayerNoConnectionMessage =
       "No se pudo cargar la capa de seguridad por falta de conexión a internet";
@@ -67,6 +70,7 @@ class _MapScreenState extends State<MapScreen> {
   LocationData? _currentLocation;
   final Location _locationService = Location();
   StreamSubscription<LocationData>? _locationSubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _locationReady = false;
   bool _locationDialogVisible = false;
 
@@ -107,6 +111,7 @@ class _MapScreenState extends State<MapScreen> {
 
   //Camino mas seguro
   final SafeRouteService _safeRouteService = SafeRouteService();
+  final ConnectivityService _connectivityService = const ConnectivityService();
   SafeRouteModel? _safeRouteResult;
   bool _isCalculatingRoute = false;
 
@@ -115,12 +120,14 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     _searchFocusNode.addListener(_handleSearchFocusChange);
     _loadCustomMarkers();
+    _startConnectivityListener();
     _initializeMap();
   }
 
   @override
   void dispose() {
     _locationSubscription?.cancel();
+    _connectivitySubscription?.cancel();
     _searchFocusNode.removeListener(_handleSearchFocusChange);
     _searchFocusNode.dispose();
     _searchController.dispose();
@@ -128,16 +135,18 @@ class _MapScreenState extends State<MapScreen> {
     super.dispose();
   }
 
-  void _closeZoneCard() {
+  void _closeZoneCard({bool clearRoute = false}) {
     setState(() {
       _selectedZone = null;
       _showSuggestions = false;
-
-      // opcional: también cerrar la ruta si estaba visible
-      _safeRouteResult = null;
-      _routes = {};
       _isCalculatingRoute = false;
+
+      if (clearRoute) {
+        _safeRouteResult = null;
+        _routes = {};
+      }
     });
+
     _generateHeatCircles(_allZones);
   }
 
@@ -146,7 +155,11 @@ class _MapScreenState extends State<MapScreen> {
     if (!mounted) return;
 
     if (!connected) {
+      final shouldNotify = !_connectionLossNoticeShown;
+
       setState(() {
+        _isConnected = false;
+        _connectionLossNoticeShown = true;
         _allZones = [];
         _filteredZones = [];
         _heatCircles = {};
@@ -157,12 +170,72 @@ class _MapScreenState extends State<MapScreen> {
         _securityLayerUnavailable = true;
         _loading = false;
       });
-      _showSecurityLayerConnectionMessage();
+      if (shouldNotify) {
+        _showSecurityLayerConnectionMessage();
+      }
       _getUserLocation(loadRemoteData: false);
       return;
     }
 
-    setState(() => _securityLayerUnavailable = false);
+    setState(() {
+      _isConnected = true;
+      _connectionLossNoticeShown = false;
+      _securityLayerUnavailable = false;
+    });
+    _loadRemoteMapData();
+  }
+
+  void _startConnectivityListener() {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      (_) => unawaited(_handleConnectivityChange()),
+    );
+  }
+
+  Future<void> _handleConnectivityChange() async {
+    if (_handlingConnectivityChange) return;
+
+    _handlingConnectivityChange = true;
+    try {
+      final connected = await _hasInternet();
+      if (!mounted) return;
+
+      if (!connected) {
+        final shouldNotify = _isConnected && !_connectionLossNoticeShown;
+
+        setState(() {
+          _isConnected = false;
+          _connectionLossNoticeShown = true;
+          _securityLayerUnavailable = true;
+
+          if (_loading && _allZones.isEmpty) {
+            _loading = false;
+          }
+        });
+
+        if (shouldNotify) {
+          _showSecurityLayerConnectionMessage();
+        }
+
+        return;
+      }
+
+      final recoveredFromOffline = !_isConnected;
+
+      setState(() {
+        _isConnected = true;
+        _connectionLossNoticeShown = false;
+        _securityLayerUnavailable = false;
+      });
+
+      if (recoveredFromOffline) {
+        _loadRemoteMapData();
+      }
+    } finally {
+      _handlingConnectivityChange = false;
+    }
+  }
+
+  void _loadRemoteMapData() {
     _loadAllPoliceStations();
     _getUserLocation();
     _loadPredictions();
@@ -170,19 +243,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<bool> _hasInternet() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult.contains(ConnectivityResult.none)) return false;
-
-    try {
-      final result = await InternetAddress.lookup(
-        'example.com',
-      ).timeout(const Duration(seconds: 3));
-      return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
-    } on SocketException {
-      return false;
-    } on TimeoutException {
-      return false;
-    }
+    return _connectivityService.hasInternet();
   }
 
   void _showSecurityLayerConnectionMessage() {
@@ -2026,9 +2087,9 @@ class _MapScreenState extends State<MapScreen> {
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOut,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.58,
+          maxHeight: MediaQuery.of(context).size.height * 0.42,
         ),
-        margin: const EdgeInsets.fromLTRB(14, 14, 86, 14),
+        margin: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(26),
@@ -2112,7 +2173,7 @@ class _MapScreenState extends State<MapScreen> {
                         _riskChip(selectedZone.nivelRiesgo),
                         const SizedBox(width: 4),
                         InkWell(
-                          onTap: _closeZoneCard,
+                          onTap: () => _closeZoneCard(),
                           borderRadius: BorderRadius.circular(999),
                           child: Container(
                             width: 32,

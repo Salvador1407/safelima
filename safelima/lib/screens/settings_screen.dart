@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -12,6 +11,7 @@ import 'package:safelima/services/user_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:safelima/models/app_feedback.dart';
 import 'package:safelima/services/app_feedback_service.dart';
+import 'package:safelima/services/connectivity_service.dart';
 import 'package:safelima/services/notification_settings_service.dart';
 import 'package:safelima/widgets/safe_buttons.dart';
 import 'package:safelima/widgets/safe_card.dart';
@@ -41,6 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final UserService _userService = UserService();
   final storage = const FlutterSecureStorage();
   final AppFeedbackService _appFeedbackService = AppFeedbackService();
+  final ConnectivityService _connectivityService = const ConnectivityService();
   final NotificationSettingsService _notificationSettingsService =
       NotificationSettingsService();
 
@@ -62,40 +63,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _checkInitialConnection() async {
-    final results = await Connectivity().checkConnectivity();
-    final result = results.isNotEmpty ? results.first : ConnectivityResult.none;
+    final connected = await _connectivityService.hasInternet();
     if (!mounted) return;
     setState(() {
-      isConnected = result != ConnectivityResult.none;
+      isConnected = connected;
     });
   }
 
   Future<bool> _hasConnection() async {
-    final results = await Connectivity().checkConnectivity();
-    final result = results.isNotEmpty ? results.first : ConnectivityResult.none;
-
-    if (result == ConnectivityResult.none) {
-      return false;
-    }
-
-    try {
-      final lookupResult = await InternetAddress.lookup(
-        'google.com',
-      ).timeout(const Duration(seconds: 3));
-
-      return lookupResult.isNotEmpty &&
-          lookupResult.first.rawAddress.isNotEmpty;
-    } on SocketException {
-      return false;
-    } on TimeoutException {
-      return false;
-    }
+    return _connectivityService.hasInternet();
   }
 
   Future<void> _loadNotificationSettings() async {
     final enabled = await _notificationSettingsService
         .getNotificationsEnabled();
-    if (!enabled) return;
 
     if (!mounted) return;
     setState(() {
@@ -261,8 +242,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(5, (index) {
                           final starIndex = index + 1;
-                          final selected =
-                              starIndex <= estrellasSeleccionadas;
+                          final selected = starIndex <= estrellasSeleccionadas;
 
                           return InkWell(
                             onTap: enviando
@@ -314,17 +294,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         fontWeight: FontWeight.w500,
                       ),
                       cursorColor: accentColor,
-                      decoration: safeInputDecoration(
-                        context,
-                        labelText: "Comentario (opcional)",
-                        hintText: "Cuéntanos qué podríamos mejorar",
-                      ).copyWith(
-                        counterStyle: GoogleFonts.poppins(
-                          color: subtitleColor,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                      decoration:
+                          safeInputDecoration(
+                            context,
+                            labelText: "Comentario (opcional)",
+                            hintText: "Cuéntanos qué podríamos mejorar",
+                          ).copyWith(
+                            counterStyle: GoogleFonts.poppins(
+                              color: subtitleColor,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                     ),
                   ],
                 ),
@@ -367,8 +348,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               estrellas: estrellasSeleccionadas,
                               comentario:
                                   comentarioController.text.trim().isEmpty
-                                      ? null
-                                      : comentarioController.text.trim(),
+                                  ? null
+                                  : comentarioController.text.trim(),
                             );
 
                             await _appFeedbackService.createFeedback(feedback);
@@ -459,10 +440,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             end: Alignment.bottomRight,
           )
         : const LinearGradient(
-            colors: [
-              AppColors.primary,
-              AppColors.secundary,
-            ],
+            colors: [AppColors.primary, AppColors.secundary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           );
@@ -488,10 +466,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: EdgeInsets.zero,
       backgroundColor: _cardColor(isDark),
       borderColor: _borderColor(isDark).withValues(alpha: isDark ? 0.55 : 0.85),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: child,
-      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(22), child: child),
     );
   }
 
@@ -709,10 +684,7 @@ Al continuar, confirmas que has leído y aceptas estos términos y condiciones d
         gradient: isDark
             ? null
             : const LinearGradient(
-                colors: [
-                  AppColors.primary,
-                  AppColors.secundary,
-                ],
+                colors: [AppColors.primary, AppColors.secundary],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -827,12 +799,9 @@ Al continuar, confirmas que has leído y aceptas estos términos y condiciones d
                 ),
               ),
             ),
-      trailing: trailing ??
-          Icon(
-            Icons.arrow_forward_ios_rounded,
-            size: 14,
-            color: subtitleColor,
-          ),
+      trailing:
+          trailing ??
+          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subtitleColor),
     );
   }
 
@@ -966,9 +935,7 @@ Al continuar, confirmas que has leído y aceptas estos términos y condiciones d
               isDark: isDark,
               child: _buildSettingsTile(
                 isDark: isDark,
-                icon: isConnected
-                    ? Icons.wifi_rounded
-                    : Icons.wifi_off_rounded,
+                icon: isConnected ? Icons.wifi_rounded : Icons.wifi_off_rounded,
                 title: "Estado de conexión",
                 subtitle: isConnected ? "Conectado" : "Sin conexión",
                 iconColor: isConnected ? AppColors.success : AppColors.danger,
