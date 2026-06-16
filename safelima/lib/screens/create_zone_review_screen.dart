@@ -57,10 +57,7 @@ class _CreateZoneReviewScreenState extends State<CreateZoneReviewScreen> {
             end: Alignment.bottomRight,
           )
         : const LinearGradient(
-            colors: [
-              AppColors.primary,
-              AppColors.secundary,
-            ],
+            colors: [AppColors.primary, AppColors.secundary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           );
@@ -69,13 +66,18 @@ class _CreateZoneReviewScreenState extends State<CreateZoneReviewScreen> {
   Future<void> _submitReview() async {
     final comment = _commentController.text.trim();
 
-    if (_rating < 1) {
-      SafeSnackBar.showWarning(context, "Selecciona una calificación");
-      return;
-    }
+    final validationMessages = <String>[];
 
     if (comment.length < 3) {
-      SafeSnackBar.showWarning(context, "Escribe un comentario válido");
+      validationMessages.add("Escribe un comentario válido");
+    }
+
+    if (_rating < 1) {
+      validationMessages.add("Selecciona una calificación");
+    }
+
+    if (validationMessages.isNotEmpty) {
+      SafeSnackBar.showWarning(context, validationMessages.join(" / "));
       return;
     }
 
@@ -354,19 +356,20 @@ class _CreateZoneReviewScreenState extends State<CreateZoneReviewScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                         cursorColor: accentColor,
-                        decoration: safeInputDecoration(
-                          context,
-                          labelText: "Comentario",
-                          hintText:
-                              "Describe cómo fue tu experiencia en esta zona...",
-                          prefixIcon: Icons.rate_review_outlined,
-                        ).copyWith(
-                          counterStyle: GoogleFonts.poppins(
-                            color: subtitleColor,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        decoration:
+                            safeInputDecoration(
+                              context,
+                              labelText: "Comentario",
+                              hintText:
+                                  "Describe cómo fue tu experiencia en esta zona...",
+                              prefixIcon: Icons.rate_review_outlined,
+                            ).copyWith(
+                              counterStyle: GoogleFonts.poppins(
+                                color: subtitleColor,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                       ),
                       const SizedBox(height: 22),
                       SizedBox(

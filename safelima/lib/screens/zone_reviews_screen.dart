@@ -456,7 +456,7 @@ class _ZoneReviewsScreenState extends State<ZoneReviewsScreen> {
         foregroundColor: AppColors.white,
         icon: const Icon(Icons.rate_review),
         label: Text(
-          "Reseñar",
+          "Escribir reseña",
           style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
         ),
         onPressed: () async {
