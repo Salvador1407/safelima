@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
+import 'package:permission_handler/permission_handler.dart' as app_permissions;
 import 'package:safelima/core/app_colors.dart';
 import 'package:safelima/core/app_data.dart';
 import 'package:safelima/models/favorite_area.dart';
@@ -23,6 +24,12 @@ import 'package:safelima/services/notification_settings_service.dart';
 import 'package:safelima/models/policestations.dart';
 import 'package:safelima/services/police_station_service.dart';
 import 'package:safelima/services/safe_route_service.dart';
+
+enum _LocationUnavailableReason {
+  serviceDisabled,
+  permissionDenied,
+  permissionDeniedForever,
+}
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -75,7 +82,11 @@ class _MapScreenState extends State<MapScreen> {
   bool _locationDialogVisible = false;
 
   static const String _locationUnavailableMessage =
-      "Para ofrecer una mejor experiencia, activa la ubicación del dispositivo.";
+      "SafeLima necesita permiso de ubicación para mostrar tu posición actual.";
+  static const String _locationServiceDisabledMessage =
+      "Para mostrar tu ubicación actual, activa la ubicación del dispositivo.";
+  static const String _locationPermanentlyDeniedMessage =
+      "El permiso de ubicación está bloqueado. Actívalo desde la configuración de la aplicación para mostrar tu posición actual.";
 
   //Lugares favoritos
   final FavoriteAreaService _favoriteService = FavoriteAreaService();
@@ -206,6 +217,8 @@ class _MapScreenState extends State<MapScreen> {
           _isConnected = false;
           _connectionLossNoticeShown = true;
           _securityLayerUnavailable = true;
+          _lastDangerZoneAlertedId = null;
+          _lastDangerNotificationTime = null;
 
           if (_loading && _allZones.isEmpty) {
             _loading = false;
@@ -603,6 +616,8 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _checkDangerZoneNotification(LocationData loc) async {
+    if (!_isConnected) return;
+
     final connected = await _hasInternet();
     if (!connected) return;
 
@@ -786,7 +801,10 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _getUserLocation({bool loadRemoteData = true}) async {
+  Future<void> _getUserLocation({
+    bool loadRemoteData = true,
+    bool centerCamera = false,
+  }) async {
     try {
       bool serviceEnabled = await _locationService.serviceEnabled();
       if (!serviceEnabled) {
@@ -794,20 +812,39 @@ class _MapScreenState extends State<MapScreen> {
         if (!mounted) return;
 
         if (!serviceEnabled) {
-          _setLocationUnavailable();
+          _setLocationUnavailable(
+            reason: _LocationUnavailableReason.serviceDisabled,
+          );
           return;
         }
       }
 
       PermissionStatus permission = await _locationService.hasPermission();
+      if (permission == PermissionStatus.deniedForever) {
+        if (!mounted) return;
+        _setLocationUnavailable(
+          reason: _LocationUnavailableReason.permissionDeniedForever,
+        );
+        return;
+      }
+
       if (permission == PermissionStatus.denied) {
         permission = await _locationService.requestPermission();
       }
 
       if (!mounted) return;
 
-      if (permission != PermissionStatus.granted) {
-        _setLocationUnavailable();
+      if (permission == PermissionStatus.deniedForever) {
+        _setLocationUnavailable(
+          reason: _LocationUnavailableReason.permissionDeniedForever,
+        );
+        return;
+      }
+
+      if (!_isLocationPermissionGranted(permission)) {
+        _setLocationUnavailable(
+          reason: _LocationUnavailableReason.permissionDenied,
+        );
         return;
       }
 
@@ -816,7 +853,9 @@ class _MapScreenState extends State<MapScreen> {
 
       final userLatLng = _latLngFromLocation(location);
       if (userLatLng == null) {
-        _setLocationUnavailable();
+        _setLocationUnavailable(
+          reason: _LocationUnavailableReason.permissionDenied,
+        );
         return;
       }
 
@@ -825,7 +864,9 @@ class _MapScreenState extends State<MapScreen> {
         _locationReady = true;
       });
 
-      _centerCameraOn(userLatLng);
+      if (centerCamera) {
+        _centerCameraOn(userLatLng);
+      }
 
       if (loadRemoteData) {
         await _updatePoliceStationProximity(
@@ -862,8 +903,15 @@ class _MapScreenState extends State<MapScreen> {
     } catch (e) {
       debugPrint("Error obteniendo ubicación actual: $e");
       if (!mounted) return;
-      _setLocationUnavailable();
+      _setLocationUnavailable(
+        reason: _LocationUnavailableReason.permissionDenied,
+      );
     }
+  }
+
+  bool _isLocationPermissionGranted(PermissionStatus permission) {
+    return permission == PermissionStatus.granted ||
+        permission == PermissionStatus.grantedLimited;
   }
 
   LatLng? _latLngFromLocation(LocationData? location) {
@@ -879,22 +927,24 @@ class _MapScreenState extends State<MapScreen> {
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
-    final userLatLng = _latLngFromLocation(_currentLocation);
-    if (userLatLng != null) {
-      _centerCameraOn(userLatLng);
-    }
   }
 
-  void _setLocationUnavailable() {
+  void _setLocationUnavailable({
+    _LocationUnavailableReason reason =
+        _LocationUnavailableReason.permissionDenied,
+  }) {
     if (!mounted) return;
     setState(() {
       _currentLocation = null;
       _locationReady = false;
     });
-    _showLocationUnavailableDialog();
+    _showLocationUnavailableDialog(reason: reason);
   }
 
-  void _showLocationUnavailableDialog() {
+  void _showLocationUnavailableDialog({
+    _LocationUnavailableReason reason =
+        _LocationUnavailableReason.permissionDenied,
+  }) {
     if (!mounted || _locationDialogVisible) return;
 
     _locationDialogVisible = true;
@@ -907,6 +957,23 @@ class _MapScreenState extends State<MapScreen> {
         final subtitleColor = isDark
             ? AppColors.subtitleDark
             : AppColors.subtitleLight;
+        final isPermissionPermanentlyDenied =
+            reason == _LocationUnavailableReason.permissionDeniedForever;
+        final title = switch (reason) {
+          _LocationUnavailableReason.serviceDisabled => "Ubicación desactivada",
+          _LocationUnavailableReason.permissionDenied =>
+            "Permiso de ubicación requerido",
+          _LocationUnavailableReason.permissionDeniedForever =>
+            "Permiso de ubicación bloqueado",
+        };
+        final message = switch (reason) {
+          _LocationUnavailableReason.serviceDisabled =>
+            _locationServiceDisabledMessage,
+          _LocationUnavailableReason.permissionDenied =>
+            _locationUnavailableMessage,
+          _LocationUnavailableReason.permissionDeniedForever =>
+            _locationPermanentlyDeniedMessage,
+        };
 
         return AlertDialog(
           backgroundColor: cardColor,
@@ -929,7 +996,7 @@ class _MapScreenState extends State<MapScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  "Ubicación desactivada",
+                  title,
                   style: GoogleFonts.poppins(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -940,7 +1007,7 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ),
           content: Text(
-            _locationUnavailableMessage,
+            message,
             style: GoogleFonts.poppins(
               fontSize: 14,
               height: 1.4,
@@ -948,6 +1015,20 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
           actions: [
+            if (isPermissionPermanentlyDenied)
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(dialogContext);
+                  await app_permissions.openAppSettings();
+                },
+                child: Text(
+                  "Abrir configuración",
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: Text(
@@ -968,6 +1049,9 @@ class _MapScreenState extends State<MapScreen> {
     required LocationData loc,
     required PoliceStation testStation,
   }) async {
+    final connected = await _hasInternet();
+    if (!connected) return;
+
     final notificationsEnabled = await _notificationSettingsService
         .getNotificationsEnabled();
 
@@ -1007,6 +1091,19 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _testPoliceStationNotificationNearCurrentLocation() async {
+    final connected = await _hasInternet();
+    if (!mounted) return;
+
+    if (!connected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(_noInternetMessage),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
     LocationData? userLocation = _currentLocation;
 
     if (userLocation?.latitude == null || userLocation?.longitude == null) {
@@ -1136,6 +1233,19 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _injectTestDangerZoneNearCurrentLocation() async {
+    final connected = await _hasInternet();
+    if (!mounted) return;
+
+    if (!connected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(_noInternetMessage),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
     if (_currentLocation?.latitude == null ||
         _currentLocation?.longitude == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1208,7 +1318,10 @@ class _MapScreenState extends State<MapScreen> {
           backgroundColor: AppColors.warning,
         ),
       );
-      _getUserLocation(loadRemoteData: !_securityLayerUnavailable);
+      _getUserLocation(
+        loadRemoteData: !_securityLayerUnavailable,
+        centerCamera: true,
+      );
       return;
     }
 

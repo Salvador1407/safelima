@@ -316,14 +316,14 @@ class AuthService {
 
     if (response.statusCode == 404) {
       throw LoginException(
-        "El usuario no existe",
+        "Usuario o contraseña incorrecta. Inténtalo de nuevo",
         statusCode: response.statusCode,
       );
     }
 
     if (response.statusCode == 401) {
       throw LoginException(
-        "La contrase\u00f1a es incorrecta",
+        "Usuario o contraseña incorrecta. Inténtalo de nuevo",
         statusCode: response.statusCode,
       );
     }
