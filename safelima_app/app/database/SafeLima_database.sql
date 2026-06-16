@@ -16,7 +16,7 @@ CREATE TABLE citizens (
     id SERIAL PRIMARY KEY,
     user_id INT UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     full_name VARCHAR(100),
-    correo VARCHAR(120)
+    correo VARCHAR(120) UNIQUE
 );
 
 -- ============================================================
@@ -175,3 +175,4 @@ CREATE INDEX idx_police_district ON police_stations (distrito);
 CREATE INDEX idx_zone_reviews_grid_fecha ON zone_reviews (grid_id, fecha_publicacion DESC);
 CREATE INDEX idx_password_reset_user ON password_reset_tokens(user_id);
 CREATE INDEX idx_password_reset_token ON password_reset_tokens(codigo);
+--Ultima version
