@@ -1334,7 +1334,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _loadPredictions() async {
     try {
-      final predictions = await _predictionService.getAllPredictions();
+      final predictions = await _predictionService.getCurrentPredictions();
       _allZones = predictions;
       _securityLayerUnavailable = false;
       _generateHeatCircles(predictions);

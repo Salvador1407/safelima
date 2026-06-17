@@ -4,6 +4,7 @@ from app.models.user_alert_model import UserAlert
 from app.schemas.user_alert_schema import UserAlertCreate, UserAlertUpdate
 from sqlalchemy import func
 from app.models.grid_model import Grid
+from app.services.time_slot_service import now_in_app_timezone
 
 def create(db: Session, objeto: UserAlertCreate):
     db_object = UserAlert(
@@ -12,9 +13,10 @@ def create(db: Session, objeto: UserAlertCreate):
         titulo=objeto.titulo,
         tipo_incidente=objeto.tipo_incidente,
         descripcion=objeto.descripcion,
-        nivel_riesgo=objeto.nivel_riesgo,
+        nivel_riesgo=None,
         ruta_foto=objeto.ruta_foto,
-        estado = "Recibido"
+        estado = "Recibido",
+        fecha=now_in_app_timezone().replace(tzinfo=None),
     )
     db.add(db_object)
     db.commit()
@@ -192,4 +194,12 @@ def get_latest_model_metrics(db: Session):
         "fecha_entrenamiento": model.fecha_entrenamiento,
     }
     
-    
+def update_risk(db: Session, alert_id: int, nivel_riesgo: str):
+    alert = db.query(UserAlert).filter(UserAlert.id == alert_id).first()
+    if not alert:
+        return None
+
+    alert.nivel_riesgo = nivel_riesgo
+    db.commit()
+    db.refresh(alert)
+    return alert
