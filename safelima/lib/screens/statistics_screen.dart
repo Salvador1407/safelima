@@ -725,6 +725,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }) {
     final Color textColor = _textColor(isDark);
     final Color subtitleColor = _subtitleColor(isDark);
+    // ignore: unused_local_variable
     final Color borderColor = _borderColor(isDark);
 
     return SafeCard(

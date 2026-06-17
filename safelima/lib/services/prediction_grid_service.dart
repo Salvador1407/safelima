@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:safelima/core/api_config.dart';
 
 import '../models/prediction_grid.dart';
 
 class PredictionGridService {
-  final String baseUrl =
-      "https://safelima-backend-1010928585686.us-central1.run.app/predictions";
+  final String baseUrl = ApiConfig.endpoint('/predictions');
 
   List<PredictionGrid> _parsePredictionList(String responseBody) {
     final List data = json.decode(responseBody);

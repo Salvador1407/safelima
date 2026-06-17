@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:safelima/core/api_config.dart';
 import '../models/user_alert.dart';
 import 'dart:io';
 import 'package:http_parser/http_parser.dart';
 
 class UserAlertService {
-  final String baseUrl =
-      "https://safelima-backend-1010928585686.us-central1.run.app/alerts";
+  final String baseUrl = ApiConfig.endpoint('/alerts');
 
   // CREATE (POST)
   Future<void> createAlert(Map<String, dynamic> body) async {
