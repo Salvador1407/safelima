@@ -130,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = _backgroundColor(isDark);
-    final textColor = _textColor(isDark);
+    //final textColor = _textColor(isDark);
     final subtitleColor = _subtitleColor(isDark);
 
     return PopScope(

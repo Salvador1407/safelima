@@ -216,6 +216,7 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
           );
   }
 
+  // ignore: unused_element
   List<BoxShadow> _softShadow(bool isDark) {
     return [
       BoxShadow(

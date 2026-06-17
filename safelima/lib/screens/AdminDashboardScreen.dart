@@ -5,6 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safelima/core/app_colors.dart';
+import 'package:safelima/screens/admin_ml_screen.dart';
 import 'package:safelima/screens/admin_users_screen.dart';
 import 'package:safelima/screens/splash_screen.dart';
 import 'package:safelima/services/user_service.dart';
@@ -225,6 +226,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       MaterialPageRoute(
                         builder: (_) => const AdminMetricsHu16Screen(),
                       ),
+                    );
+                  },
+                ),
+
+                _buildDashboardCard(
+                  icon: Icons.psychology_alt_rounded,
+                  title: "ML Predictivo",
+                  color: AppColors.secundary,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AdminMlScreen()),
                     );
                   },
                 ),

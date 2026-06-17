@@ -241,7 +241,6 @@ class _ReportScreenState extends State<ReportScreen> {
         "descripcion": _descController.text.isNotEmpty
             ? _descController.text
             : "Sin descripción",
-        "nivel_riesgo": _mapRiskLevel(_selectedIncident!),
         "citizen_id": AppData.citizen_id.toString(),
         "grid_id": _selectedGridId.toString(),
       };
@@ -268,21 +267,6 @@ class _ReportScreenState extends State<ReportScreen> {
       debugPrint("Error técnico al enviar reporte: $e");
 
       SafeSnackBar.showError(context, "No tienes conexión a Internet");
-    }
-  }
-
-  String _mapRiskLevel(String incidentType) {
-    switch (incidentType.toLowerCase()) {
-      case "asalto con arma de fuego":
-      case "asalto con arma blanca":
-      case "robo de vehículo":
-        return "alto";
-      case "hurto de celular":
-      case "robo al paso":
-      case "riña entre grupos":
-        return "medio";
-      default:
-        return "bajo";
     }
   }
 

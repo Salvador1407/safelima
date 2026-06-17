@@ -18,6 +18,7 @@ from app.controllers import (
     app_feedback_controller,
     admin_technical_router,
     ml_admin_controller,
+    ml_internal_controller,
     safe_route_controller,
 )
 from app.services import ml_model_loader_service
@@ -44,6 +45,7 @@ app.include_router(police_station_controller.router)
 app.include_router(app_feedback_controller.router)
 app.include_router(admin_technical_router.router)
 app.include_router(ml_admin_controller.router)
+app.include_router(ml_internal_controller.router)
 app.include_router(safe_route_controller.router)
 
 

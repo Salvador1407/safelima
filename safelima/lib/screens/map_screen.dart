@@ -108,6 +108,7 @@ class _MapScreenState extends State<MapScreen> {
   final PoliceStationService _policeStationService = PoliceStationService();
 
   List<PoliceStation> _allPoliceStations = [];
+  // ignore: unused_field
   List<PoliceStation> _nearbyPoliceStations = [];
   final Map<int, DateTime> _lastPoliceNotificationByStationId = {};
   bool _isPoliceStationTestMode = false;
@@ -1045,6 +1046,7 @@ class _MapScreenState extends State<MapScreen> {
     ).whenComplete(() => _locationDialogVisible = false);
   }
 
+  // ignore: unused_element
   Future<void> _checkTestPoliceStationNotification({
     required LocationData loc,
     required PoliceStation testStation,
@@ -1543,6 +1545,7 @@ class _MapScreenState extends State<MapScreen> {
     return isDark ? AppColors.borderDark : AppColors.borderLight;
   }
 
+  // ignore: unused_element
   double _getHue(String nivel) {
     switch (nivel.toLowerCase()) {
       case "bajo":
@@ -1639,6 +1642,7 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  // ignore: unused_element
   ButtonStyle _mapActionStyle({
     required Color background,
     Color foreground = AppColors.white,
