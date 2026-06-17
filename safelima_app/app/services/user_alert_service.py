@@ -1,14 +1,58 @@
+import logging
+
 from sqlalchemy.orm import Session
-from app.repositories import ml_model_repository, user_alert_repository
+from app.repositories import grid_repository, user_alert_repository
 from app.schemas.user_alert_schema import UserAlertCreate, UserAlertUpdate, UserAlertUpdateAdmin
 from fastapi import UploadFile
+from app.services import ml_inference_service, prediction_grid_service
 from app.services.gcs_service import upload_alert_image
+from app.services.time_slot_service import get_time_slot
+from app.services.time_slot_service import now_in_app_timezone
 
 
+logger = logging.getLogger(__name__)
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/jpg"}
 
 def registerAlert(db: Session, objecto: UserAlertCreate):
-    return user_alert_repository.create(db, objecto)
+    created_alert = user_alert_repository.create(db, objecto)
+    _recalculate_prediction_for_alert(db, created_alert)
+    return created_alert
+
+
+def _recalculate_prediction_for_alert(db: Session, alert) -> None:
+    try:
+        grid = grid_repository.get_by_id(db, alert.grid_id)
+        if not grid:
+            raise ValueError(f"Grid no encontrado: {alert.grid_id}")
+
+        alert_datetime = alert.fecha or now_in_app_timezone().replace(tzinfo=None)
+        tramo_horario = get_time_slot(alert_datetime)
+        prediction = ml_inference_service.predict_online(
+            fecha=alert_datetime,
+            hora=alert_datetime.time(),
+            lugar=grid.nombre,
+            tramo=tramo_horario,
+            tipo_incidente=alert.tipo_incidente,
+        )
+        user_alert_repository.update_risk(
+            db=db,
+            alert_id=alert.id,
+            nivel_riesgo=prediction["nivel_riesgo"],
+        )
+        prediction_grid_service.upsert_prediction(
+            db=db,
+            grid_id=alert.grid_id,
+            tramo_horario=tramo_horario,
+            score_riesgo=prediction["score_riesgo"],
+            nivel_riesgo=prediction["nivel_riesgo"],
+        )
+    except Exception as exc:
+        db.rollback()
+        logger.exception(
+            "No se pudo recalcular predicción online para alerta %s: %s",
+            getattr(alert, "id", None),
+            exc,
+        )
 
 def register(db: Session, objecto: UserAlertCreate, foto: UploadFile | None = None):
     image_url = None
@@ -25,7 +69,9 @@ def register(db: Session, objecto: UserAlertCreate, foto: UploadFile | None = No
     # Asignamos la URL resultante al campo correspondiente
     objecto.ruta_foto = image_url
     
-    return user_alert_repository.create(db, objecto)
+    created_alert = user_alert_repository.create(db, objecto)
+    _recalculate_prediction_for_alert(db, created_alert)
+    return created_alert
 
 def list_all(db: Session):
     return user_alert_repository.get(db)

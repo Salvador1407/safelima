@@ -1,16 +1,11 @@
-from datetime import datetime
 from sqlalchemy.orm import Session
+
 from app.repositories import safe_route_repository
+from app.services.time_slot_service import get_time_slot
 
-#Route Risk Evaluator
+
 def _get_current_time_slot() -> str:
-    hour = datetime.now().hour
-
-    if 6 <= hour < 12:
-        return "Mañana"
-    if 12 <= hour < 18:
-        return "Tarde"
-    return "Noche"
+    return get_time_slot()
 
 
 def _risk_weight(nivel_riesgo: str) -> int:
@@ -38,8 +33,6 @@ def evaluate_route_risk(
     low_count = 0
 
     tramo_actual = _get_current_time_slot()
-
-    # Muestreo más fino
     sampled = coordinates[::3] if len(coordinates) > 3 else coordinates
 
     visited_prediction_ids: set[int] = set()

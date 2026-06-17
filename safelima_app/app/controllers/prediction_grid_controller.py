@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from app.database.database import get_db
 from app.schemas.prediction_grid_schema import PredictionGridOut, PredictionGridCreate, PredictionGridUpdate
@@ -13,8 +13,21 @@ def create(objecto: PredictionGridCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=list[PredictionGridOut])
-def get_objects(db: Session = Depends(get_db)):
-    return prediction_grid_service.list_all(db)
+def get_objects(
+    tramo_horario: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        if tramo_horario:
+            return prediction_grid_service.list_by_tramo(db, tramo_horario)
+        return prediction_grid_service.list_all(db)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/current", response_model=list[PredictionGridOut])
+def get_current_predictions(db: Session = Depends(get_db)):
+    return prediction_grid_service.list_current(db)
 
 
 @router.get("/{Obj_id}", response_model=PredictionGridOut)

@@ -17,8 +17,10 @@ from app.controllers import (
     police_station_controller,
     app_feedback_controller,
     admin_technical_router,
+    ml_admin_controller,
     safe_route_controller,
 )
+from app.services import ml_model_loader_service
 
 # Inicializar FastAPI
 app = FastAPI(
@@ -41,7 +43,16 @@ app.include_router(review_like_controller.router)
 app.include_router(police_station_controller.router)
 app.include_router(app_feedback_controller.router)
 app.include_router(admin_technical_router.router)
+app.include_router(ml_admin_controller.router)
 app.include_router(safe_route_controller.router)
+
+
+@app.on_event("startup")
+def load_ml_models_on_startup():
+    try:
+        ml_model_loader_service.load_models()
+    except Exception as exc:
+        print(f"Error cargando modelos ML: {exc}")
 
 # Endpoint base de verificación
 @app.get("/")

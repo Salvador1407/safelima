@@ -9,6 +9,22 @@ class PredictionGridService {
   final String baseUrl =
       "https://safelima-backend-1010928585686.us-central1.run.app/predictions";
 
+  List<PredictionGrid> _parsePredictionList(String responseBody) {
+    final List data = json.decode(responseBody);
+    return data.map((json) {
+      try {
+        return PredictionGrid.fromJson(json);
+      } catch (_) {
+        return PredictionGrid(
+          id: -1,
+          gridId: -1,
+          scoreRiesgo: 0,
+          nivelRiesgo: "desconocido",
+        );
+      }
+    }).toList();
+  }
+
   // CREATE (POST)
   Future<void> createPrediction(Map<String, dynamic> body) async {
     final response = await http.post(
@@ -29,21 +45,36 @@ class PredictionGridService {
         .timeout(const Duration(seconds: 8));
 
     if (response.statusCode == 200) {
-      final List data = json.decode(response.body);
-      return data.map((json) {
-        try {
-          return PredictionGrid.fromJson(json);
-        } catch (_) {
-          return PredictionGrid(
-            id: -1,
-            gridId: -1,
-            scoreRiesgo: 0,
-            nivelRiesgo: "desconocido",
-          );
-        }
-      }).toList();
+      return _parsePredictionList(response.body);
     } else {
       throw Exception("Error al obtener predicciones");
+    }
+  }
+
+  Future<List<PredictionGrid>> getCurrentPredictions() async {
+    final response = await http
+        .get(Uri.parse("$baseUrl/current"))
+        .timeout(const Duration(seconds: 8));
+
+    if (response.statusCode == 200) {
+      return _parsePredictionList(response.body);
+    } else {
+      throw Exception("Error al obtener predicciones actuales");
+    }
+  }
+
+  Future<List<PredictionGrid>> getPredictionsByTramo(
+    String tramoHorario,
+  ) async {
+    final uri = Uri.parse(
+      "$baseUrl/",
+    ).replace(queryParameters: {"tramo_horario": tramoHorario});
+    final response = await http.get(uri).timeout(const Duration(seconds: 8));
+
+    if (response.statusCode == 200) {
+      return _parsePredictionList(response.body);
+    } else {
+      throw Exception("Error al obtener predicciones por tramo horario");
     }
   }
 

@@ -18,6 +18,7 @@ class Settings:
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-local-dev-secret")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    TZ: str = os.getenv("TZ", "America/Lima")
 
     
     #Google Storage - Alertas con imagenes

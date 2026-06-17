@@ -1,7 +1,11 @@
 from sqlalchemy import Column, Integer, Numeric, String, DateTime, ForeignKey, func, CheckConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from app.database.database import Base
+
+def lima_now_naive():
+    return datetime.now(ZoneInfo("America/Lima")).replace(tzinfo=None)
 
 class PredictionGrid(Base):
     __tablename__ = "predictions_grid"
@@ -11,7 +15,7 @@ class PredictionGrid(Base):
     score_riesgo = Column(Integer, nullable=True)
     tramo_horario = Column(String(20), nullable=False)
     nivel_riesgo = Column(String(20), nullable=True)
-    fecha_prediccion = Column(DateTime, default=datetime.utcnow, server_default=func.now(),)
+    fecha_prediccion = Column(DateTime, default=lima_now_naive)
     
     __table_args__ = (
         CheckConstraint(
