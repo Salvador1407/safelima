@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 #Config
 load_dotenv()
 
-
+#Migrado
 class Settings:
     
     #Base de Datos
