@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/ml_model.dart';
+import 'package:safelima/core/api_config.dart';
 
 class MlModelService {
-  final String baseUrl =
-      "https://safelima-backend-1010928585686.us-central1.run.app/models";
+  final String baseUrl = ApiConfig.endpoint('/models');
 
   Future<void> createModel(Map<String, dynamic> body) async {
     final response = await http.post(

@@ -60,3 +60,9 @@ coverage/
 .DS_Store
 Thumbs.db
 desktop.ini
+safelima/lib/core/api_config.dart
+
+# GCP deployment env files
+env.gcp.yaml
+**/env.gcp.yaml
+*.gcp.yaml

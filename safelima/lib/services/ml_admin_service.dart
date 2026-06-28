@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:http/http.dart' as http;
 import 'package:safelima/core/api_config.dart';
 import 'package:safelima/core/app_data.dart';

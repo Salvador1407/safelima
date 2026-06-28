@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:safelima/models/favorite_area.dart';
+import 'package:safelima/core/api_config.dart';
 
 class FavoriteAreaService {
-  final String baseUrl =
-      "https://safelima-backend-1010928585686.us-central1.run.app/favorites";
+  final String baseUrl = ApiConfig.endpoint('/favorites');
 
   Future<List<FavoriteArea>> getFavoritesByCitizen(int citizenId) async {
     final response = await http.get(Uri.parse("$baseUrl/citizen/$citizenId"));

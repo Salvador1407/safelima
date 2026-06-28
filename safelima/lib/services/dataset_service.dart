@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/dataset.dart';
+import 'package:safelima/core/api_config.dart';
 
 class DatasetService {
-  final String baseUrl =
-      "https://safelima-backend-1010928585686.us-central1.run.app/datasets";
+  final String baseUrl = ApiConfig.endpoint('/datasets');
 
   Future<void> createDataset(Map<String, dynamic> body) async {
     final response = await http.post(

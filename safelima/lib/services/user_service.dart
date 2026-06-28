@@ -6,6 +6,7 @@ import 'package:safelima/core/app_data.dart';
 import 'package:safelima/models/citizen.dart';
 import '../models/user.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:safelima/core/api_config.dart';
 
 class RegisterCitizenException implements Exception {
   final String message;
@@ -28,8 +29,7 @@ class LoginException implements Exception {
 }
 
 class UserService {
-  final String baseUrl =
-      "https://safelima-backend-1010928585686.us-central1.run.app/users";
+  final String baseUrl = ApiConfig.endpoint('/users');
 
   Future<User> createUser(Map<String, dynamic> body) async {
     final response = await http.post(
@@ -271,8 +271,8 @@ class UserService {
 }
 
 class AuthService {
-  final String baseUrl =
-      "https://safelima-backend-1010928585686.us-central1.run.app/users";
+  final String baseUrl = ApiConfig.endpoint('/users');
+
   final _storage = const FlutterSecureStorage();
 
   Future<String?> login(String username, String password) async {
