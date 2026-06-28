@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/grid.dart';
+import 'package:safelima/core/api_config.dart';
 
 class GridService {
-  final String baseUrl =
-      "https://safelima-backend-1010928585686.us-central1.run.app/grids";
+  final String baseUrl = ApiConfig.endpoint('/grids');
 
   Future<void> createGrid(Map<String, dynamic> body) async {
     final response = await http.post(

@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:safelima/models/app_feedback.dart';
+import 'package:safelima/core/api_config.dart';
 
 class AppFeedbackService {
-  final String baseUrl =
-      "https://safelima-backend-1010928585686.us-central1.run.app/appfeedback";
+  final String baseUrl = ApiConfig.endpoint('/appfeedback');
 
   Future<AppFeedback> createFeedback(AppFeedback feedback) async {
     final response = await http.post(

@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:safelima/models/policestations.dart';
+import 'package:safelima/core/api_config.dart';
 
 class PoliceStationService {
-  final String baseUrl =
-      "https://safelima-backend-1010928585686.us-central1.run.app/policestations";
+  final String baseUrl = ApiConfig.endpoint('/policestations');
 
   Future<List<PoliceStation>> getNearby({
     required double lat,

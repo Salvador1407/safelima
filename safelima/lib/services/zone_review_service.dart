@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:safelima/models/summary.dart';
 import 'package:safelima/models/zone_review.dart';
+import 'package:safelima/core/api_config.dart';
 
 class ZoneReviewService {
-  final String baseUrl =
-      "https://safelima-backend-1010928585686.us-central1.run.app/zonereviews";
+  final String baseUrl = ApiConfig.endpoint('/routes');
 
   Future<ZoneReviewSummary> getReviewsByGrid(
     int gridId, {
