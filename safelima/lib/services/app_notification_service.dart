@@ -8,7 +8,7 @@ class AppNotificationService {
   static Future<void> init() async {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
-    );
+    ); 
 
     const settings = InitializationSettings(android: androidSettings);
 
